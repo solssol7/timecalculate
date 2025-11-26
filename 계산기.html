@@ -3,40 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주간 근무시간 계산기 (API 연동 버전)</title>
+    <title>주간 근무시간 계산기 (API 연동 v9)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
         .time-input {
-            width: 100%; min-width: 140px; padding: 4px 8px;
+            width: 100%; min-width: 130px; padding: 4px 8px;
             border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
         }
         .time-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); }
         .leave-hours-input {
-            width: 70px; padding: 4px 8px;
+            width: 60px; padding: 4px 8px;
             border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; text-align: center;
-        }
-        /* 모달 스타일 */
-        .modal {
-            display: none; position: fixed; z-index: 50; left: 0; top: 0;
-            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);
-        }
-        .modal-content {
-            background-color: #fefefe; margin: 10% auto; p-0; border: 1px solid #888;
-            width: 90%; max-width: 500px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden relative">
-        <button id="btn-settings" class="absolute top-6 right-6 text-slate-400 hover:text-indigo-600 transition-colors" title="공휴일 데이터 설정">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-        </button>
-
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="p-6 md:p-8">
             <h1 class="text-3xl font-bold text-indigo-700 mb-2">주간 근무시간 계산기</h1>
-            <p class="text-slate-600">CSV 파일을 업로드하면 <span id="holiday-source-badge" class="font-bold text-indigo-600">공휴일(2025-26 내장)</span>을 반영하여 계산합니다.</p>
+            <p class="text-slate-600">CSV를 업로드하면 <span class="text-indigo-600 font-bold">한국천문연구원 API</span>를 통해 해당 월의 공휴일 정보를 받아옵니다.</p>
 
             <div class="mt-6 mb-8 p-6 bg-indigo-50 rounded-lg border border-indigo-100">
                 <label for="csvUploader" class="block text-sm font-bold text-indigo-800 mb-2">📂 근태 CSV 파일 선택</label>
@@ -50,6 +37,11 @@
                 ">
             </div>
 
+            <div id="loading-spinner" class="hidden text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
+                <p class="mt-2 text-indigo-600 font-medium" id="loading-text">공휴일 정보를 불러오는 중입니다...</p>
+            </div>
+
             <div id="results-container" class="space-y-8">
                 <div id="placeholder" class="text-center text-slate-400 py-16 border-2 border-dashed border-slate-300 rounded-lg">
                     <p class="text-lg">파일을 업로드하면 결과가 여기에 표시됩니다.</p>
@@ -60,246 +52,145 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="modal">
-        <div class="modal-content overflow-hidden">
-            <div class="bg-indigo-600 p-4 flex justify-between items-center">
-                <h2 class="text-white font-bold text-lg">공휴일 데이터 설정</h2>
-                <span id="close-modal" class="text-white text-2xl font-bold cursor-pointer hover:text-indigo-200">&times;</span>
-            </div>
-            <div class="p-6">
-                <p class="text-sm text-slate-600 mb-4">
-                    공공데이터포털의 <strong>[특일 정보 API]</strong>를 사용하여 최신 공휴일 정보를 받아올 수 있습니다.<br>
-                    <span class="text-xs text-slate-400">* 인증키는 브라우저(Local Storage)에만 저장됩니다.</span>
-                </p>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-slate-700 mb-1">API 인증키 (Decoding Key)</label>
-                    <input type="text" id="api-key-input" class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none text-sm" placeholder="공공데이터포털 Decoding Key 입력">
-                </div>
-
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-sm font-medium text-slate-700">데이터 수집 연도</span>
-                    <span class="text-sm text-slate-500">올해 + 내년 (자동)</span>
-                </div>
-
-                <button id="btn-fetch-api" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition font-bold mb-2">
-                    데이터 가져오기
-                </button>
-                <button id="btn-reset-data" class="w-full bg-white text-slate-500 border border-slate-300 py-2 rounded hover:bg-slate-50 transition text-sm">
-                    초기화 (기본 내장 데이터 사용)
-                </button>
-
-                <div id="api-status" class="mt-4 text-xs text-center text-slate-400 h-4"></div>
-            </div>
-        </div>
-    </div>
-
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("App Ready.");
-
-            // --- 내장 공휴일 데이터 (Fallback) ---
-            const DEFAULT_HOLIDAYS = new Set([
-                '2025-01-01', '2025-01-27', '2025-01-28', '2025-01-29', '2025-01-30', 
-                '2025-03-01', '2025-03-03', '2025-05-01', '2025-05-05', '2025-05-06', 
-                '2025-06-06', '2025-08-15', '2025-10-03', '2025-10-05', '2025-10-06', 
-                '2025-10-07', '2025-10-08', '2025-10-09', '2025-12-25',
-                '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-03-01', 
-                '2026-03-02', '2026-05-01', '2026-05-05', '2026-05-24', '2026-05-25', 
-                '2026-06-03', '2026-06-06', '2026-08-15', '2026-08-17', '2026-09-24', 
-                '2026-09-25', '2026-09-26', '2026-10-03', '2026-10-05', '2026-10-09', 
-                '2026-12-25'
-            ]);
-
-            let PUBLIC_HOLIDAYS = new Set(DEFAULT_HOLIDAYS); // 현재 사용하는 공휴일 집합
+            // 제공해주신 인증키
+            const API_KEY = "b060c24914cc86079258cce70c2f5ed20157eea835b61224c687501034d7a6b6";
             
-            // --- UI Elements ---
+            // 공휴일 정보를 저장할 Set (YYYY-MM-DD 형식)
+            let HOLIDAYS = new Set();
+            // 이미 불러온 월을 기록하여 중복 호출 방지 (Set<"YYYYMM">)
+            let FETCHED_MONTHS = new Set();
+
             const csvUploader = document.getElementById('csvUploader');
             const resultsContainer = document.getElementById('results-container');
             const summaryContainer = document.getElementById('summary-container');
             const placeholder = document.getElementById('placeholder');
-            
-            // Modal Elements
-            const modal = document.getElementById('settings-modal');
-            const btnSettings = document.getElementById('btn-settings');
-            const btnClose = document.getElementById('close-modal');
-            const apiKeyInput = document.getElementById('api-key-input');
-            const btnFetch = document.getElementById('btn-fetch-api');
-            const btnReset = document.getElementById('btn-reset-data');
-            const apiStatus = document.getElementById('api-status');
-            const sourceBadge = document.getElementById('holiday-source-badge');
+            const spinner = document.getElementById('loading-spinner');
+            const loadingText = document.getElementById('loading-text');
 
-            // --- State ---
             let allCsvData = {}; 
             let liveUpdateInterval = null;
             let remainingDaysAdjustments = {};
 
-            // --- 초기화 로직: LocalStorage 확인 ---
-            initHolidayData();
-
-            function initHolidayData() {
-                const storedHolidays = localStorage.getItem('myHolidays');
-                const storedKey = localStorage.getItem('myApiKey');
-
-                if (storedKey) apiKeyInput.value = storedKey;
-
-                if (storedHolidays) {
-                    try {
-                        const parsed = JSON.parse(storedHolidays);
-                        PUBLIC_HOLIDAYS = new Set(parsed);
-                        sourceBadge.textContent = `공휴일(API 저장됨: ${parsed.length}건)`;
-                        sourceBadge.className = "font-bold text-green-600";
-                        console.log(`Loaded ${parsed.length} holidays from storage.`);
-                    } catch (e) {
-                        console.error("Storage parse error", e);
-                        resetToDefault();
-                    }
-                } else {
-                    resetToDefault(false);
-                }
-            }
-
-            function resetToDefault(updateUI = true) {
-                PUBLIC_HOLIDAYS = new Set(DEFAULT_HOLIDAYS);
-                if (updateUI) {
-                    localStorage.removeItem('myHolidays');
-                    sourceBadge.textContent = "공휴일(2025-26 내장)";
-                    sourceBadge.className = "font-bold text-indigo-600";
-                    apiStatus.textContent = "기본 데이터로 초기화되었습니다.";
-                    setTimeout(() => calculateAllTotals(), 100); // 재계산
-                }
-            }
-
-            // --- API Fetch Logic ---
-            btnFetch.addEventListener('click', async () => {
-                const key = apiKeyInput.value.trim();
-                if (!key) {
-                    alert("API 키를 입력해주세요.");
-                    return;
-                }
-                
-                apiStatus.textContent = "데이터를 가져오는 중입니다... (약 3~5초 소요)";
-                apiStatus.className = "mt-4 text-xs text-center text-blue-500 animate-pulse";
-                
-                try {
-                    const years = [new Date().getFullYear(), new Date().getFullYear() + 1];
-                    const newHolidays = new Set();
-                    
-                    // Promise.all로 병렬 처리 하려 했으나 API 과부하 방지를 위해 순차 처리 권장
-                    for (const year of years) {
-                        await fetchHolidaysForYear(year, key, newHolidays);
-                    }
-
-                    // 근로자의 날(5/1)은 공공데이터 API에 없는 경우가 많으므로 수동 추가
-                    newHolidays.add(`${years[0]}-05-01`);
-                    newHolidays.add(`${years[1]}-05-01`);
-
-                    // 성공 시 저장
-                    localStorage.setItem('myHolidays', JSON.stringify([...newHolidays]));
-                    localStorage.setItem('myApiKey', key);
-                    
-                    PUBLIC_HOLIDAYS = newHolidays;
-                    sourceBadge.textContent = `공휴일(API 최신: ${newHolidays.size}건)`;
-                    sourceBadge.className = "font-bold text-green-600";
-                    
-                    apiStatus.textContent = "성공! 데이터가 저장되었습니다.";
-                    apiStatus.className = "mt-4 text-xs text-center text-green-600 font-bold";
-                    
-                    // 즉시 재계산
-                    if (Object.keys(allCsvData).length > 0) calculateAllTotals();
-
-                } catch (error) {
-                    console.error(error);
-                    apiStatus.textContent = "실패: " + error.message;
-                    apiStatus.className = "mt-4 text-xs text-center text-red-500 font-bold";
-                    alert("API 호출 실패!\n\n1. API 키가 유효한지 확인하세요.\n2. 브라우저 CORS 문제일 수 있습니다. (확장 프로그램 필요할 수 있음)\n3. '내장 데이터'를 계속 사용합니다.");
-                }
-            });
-
-            async function fetchHolidaysForYear(year, key, setObj) {
-                // 특일 정보 API (getRestDeInfo)
-                const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&numOfRows=100&_type=json&ServiceKey=${key}`; // key는 이미 인코딩 되어있거나 아닐 수 있음. 보통 text input값은 raw.
-                
-                // 주의: 공공데이터포털 키는 이미 인코딩된 키(%)와 디코딩된 키가 있음.
-                // fetch에서는 URL에 넣을 때 자동으로 인코딩될 수 있으므로 주의.
-                // 여기서는 사용자가 'Decoding Key'를 넣었다고 가정하고 encodeURIComponent를 안 쓰거나, 
-                // 혹은 'Encoding Key'를 넣었을 수도 있음. 
-                // 가장 안전한 방법: 사용자가 입력한 그대로 넣되, 브라우저가 파라미터 인코딩 하는 것을 방지하기 위해 직접 문자열 조합.
-                
-                // CORS 에러 발생 가능성 높음 -> fetch의 mode: 'cors' 시도.
-                // 하지만 공공데이터 서버가 Allow-Origin 헤더를 안 주면 브라우저에서 막힘.
-                
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-                
-                const text = await response.text();
-                // JSON 파싱 시도 (API가 XML을 줄 수도 있음)
-                let items = [];
-                try {
-                    const json = JSON.parse(text);
-                    const body = json.response.body;
-                    if (body.items === "") return; // 데이터 없음
-                    
-                    const itemData = body.items.item;
-                    if (Array.isArray(itemData)) items = itemData;
-                    else if (itemData) items = [itemData];
-                    
-                } catch (e) {
-                    // XML 파싱 시도 (DOMParser)
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(text, "text/xml");
-                    const itemNodes = xmlDoc.getElementsByTagName("item");
-                    for (let i = 0; i < itemNodes.length; i++) {
-                        const locdate = itemNodes[i].getElementsByTagName("locdate")[0]?.textContent;
-                        const isHoliday = itemNodes[i].getElementsByTagName("isHoliday")[0]?.textContent;
-                        if (locdate && isHoliday === 'Y') {
-                            items.push({ locdate: parseInt(locdate) });
-                        }
-                    }
-                }
-
-                items.forEach(item => {
-                    // locdate: 20250101 (Number or String)
-                    const str = String(item.locdate);
-                    if (str.length === 8) {
-                        const fmt = `${str.substring(0,4)}-${str.substring(4,6)}-${str.substring(6,8)}`;
-                        setObj.add(fmt);
-                    }
-                });
-            }
-
-            btnReset.addEventListener('click', () => resetToDefault(true));
-
-            // --- Modal Control ---
-            btnSettings.onclick = () => modal.style.display = "block";
-            btnClose.onclick = () => modal.style.display = "none";
-            window.onclick = (event) => { if (event.target == modal) modal.style.display = "none"; }
-
-
-            // ==========================================
-            // 기존 로직 (CSV 처리 및 계산)
-            // ==========================================
             csvUploader.addEventListener('change', handleFileUpload);
 
-            function handleFileUpload(event) {
+            async function handleFileUpload(event) {
                 if (liveUpdateInterval) clearInterval(liveUpdateInterval);
                 const file = event.target.files[0];
                 if (!file) return;
 
-                placeholder.style.display = 'block';
+                // UI 초기화
+                placeholder.style.display = 'none';
                 resultsContainer.innerHTML = '';
                 summaryContainer.innerHTML = '';
+                spinner.classList.remove('hidden');
                 remainingDaysAdjustments = {};
-
+                
+                // 1. CSV 파싱
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = async (e) => {
                     try {
-                        const data = parseCSV(e.target.result);
+                        const csvText = e.target.result;
+                        const data = parseCSV(csvText);
                         if (!data.length) throw new Error("데이터가 없습니다.");
+                        
+                        // 2. 필요한 연/월 추출 및 API 호출
+                        await prepareHolidaysForData(data);
+                        
+                        // 3. 데이터 처리 및 렌더링
                         processCsvData(data);
-                    } catch (err) { alert("CSV 파싱 오류: " + err.message); }
+                        spinner.classList.add('hidden');
+
+                    } catch (err) {
+                        spinner.classList.add('hidden');
+                        alert("처리 중 오류 발생: " + err.message);
+                        placeholder.style.display = 'block';
+                    }
                 };
                 reader.readAsText(file, "UTF-8"); 
+            }
+
+            /**
+             * CSV 데이터에 있는 날짜들과 '현재 날짜'를 기준으로 필요한 공휴일 데이터를 API에서 가져옴
+             */
+            async function prepareHolidaysForData(data) {
+                const monthsToFetch = new Set();
+                const now = new Date();
+                
+                // (1) 현재 연/월 추가 (미래 예측용)
+                const currentY = now.getFullYear();
+                const currentM = now.getMonth() + 1;
+                monthsToFetch.add(`${currentY}${String(currentM).padStart(2, '0')}`);
+
+                // (2) CSV 데이터 내의 연/월 추출
+                data.forEach(row => {
+                    if (row.근무일자) { // YYYY-MM-DD 가정
+                        const parts = row.근무일자.split('-');
+                        if (parts.length >= 2) {
+                            const y = parts[0];
+                            const m = parts[1];
+                            monthsToFetch.add(`${y}${m}`);
+                        }
+                    }
+                });
+
+                // (3) API 호출 (병렬 처리)
+                const promises = [];
+                for (const ym of monthsToFetch) {
+                    if (!FETCHED_MONTHS.has(ym)) {
+                        const year = ym.substring(0, 4);
+                        const month = ym.substring(4, 6);
+                        promises.push(fetchHolidaysFromApi(year, month));
+                        FETCHED_MONTHS.add(ym);
+                    }
+                }
+
+                if (promises.length > 0) {
+                    loadingText.textContent = `${promises.length}개월 치 공휴일 정보를 API에서 가져오는 중...`;
+                    await Promise.all(promises);
+                }
+            }
+
+            /**
+             * 한국천문연구원 특일 정보 API 호출
+             */
+            async function fetchHolidaysFromApi(year, month) {
+                // API 엔드포인트
+                const baseUrl = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";
+                
+                // URL 생성 (ServiceKey는 인코딩 없이 그대로 넣거나, 필요시 인코딩)
+                // 주의: 제공된 키가 Hex String이므로 그대로 파라미터에 사용해봅니다.
+                // 만약 작동하지 않으면 encodeURIComponent(API_KEY)를 시도해야 합니다.
+                const queryParams = `?solYear=${year}&solMonth=${month}&ServiceKey=${API_KEY}&_type=json&numOfRows=50`;
+                const url = `${baseUrl}${queryParams}`;
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`API Error ${response.status}`);
+                    
+                    const json = await response.json();
+                    
+                    // 응답 구조 파싱 (response.body.items.item)
+                    const items = json.response?.body?.items?.item;
+
+                    if (items) {
+                        const list = Array.isArray(items) ? items : [items];
+                        list.forEach(item => {
+                            if (item.isHoliday === 'Y') {
+                                // locdate는 숫자나 문자열 (예: 20250101)
+                                const dStr = String(item.locdate);
+                                const fmtDate = `${dStr.substring(0,4)}-${dStr.substring(4,6)}-${dStr.substring(6,8)}`;
+                                HOLIDAYS.add(fmtDate);
+                                console.log(`공휴일 추가됨: ${fmtDate} (${item.dateName})`);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`API Fetch Failed for ${year}-${month}:`, error);
+                    // 실패해도 조용히 넘어감 (CORS 등 문제 시)
+                    // 필요 시 사용자에게 알림을 줄 수 있음
+                }
             }
 
             function processCsvData(data) {
@@ -313,7 +204,6 @@
                 if (Object.keys(allCsvData).length === 0) {
                     alert("유효한 데이터가 없습니다."); return;
                 }
-                placeholder.style.display = 'none';
                 renderDataTables();
                 calculateAllTotals();
             }
@@ -375,7 +265,7 @@
                     const name = tr.dataset.name;
                     if (!totals[name]) totals[name] = { h40: 0, h45: 0, dates: new Set(), live: false };
 
-                    const dateTxt = tr.children[0].innerText;
+                    const dateTxt = tr.children[0].innerText; // YYYY-MM-DD
                     const dateMatch = dateTxt.match(/\d{4}-\d{2}-\d{2}/);
                     if (dateMatch) totals[name].dates.add(dateMatch[0]);
 
@@ -429,7 +319,7 @@
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-2xl font-bold text-indigo-900">${name}</h3>
                             <div class="flex items-center bg-slate-100 rounded-lg px-3 py-1.5 space-x-3">
-                                <span class="text-sm text-slate-600 font-medium">잔여 근무일(평일):</span>
+                                <span class="text-sm text-slate-600 font-medium">잔여 근무일(API반영):</span>
                                 <div class="flex items-center space-x-1">
                                     <button class="w-6 h-6 flex items-center justify-center bg-white border border-slate-300 rounded text-slate-500 hover:bg-slate-50 hover:text-indigo-600 font-bold" onclick="adjDays('${name}', -1)">-</button>
                                     <span id="rem-txt-${safe}" class="w-6 text-center font-bold text-indigo-600 text-lg">0</span>
@@ -465,7 +355,7 @@
                             <div>
                                 <p class="text-xs text-slate-500 mb-1">주간 예상 최종</p>
                                 <p id="pred-40-${safe}" class="text-xl font-bold text-indigo-600">-</p>
-                                <p class="text-[10px] text-slate-400 mt-1">*남은 날 8H 근무 시</p>
+                                <p class="text-[10px] text-slate-400 mt-1">*남은 평일 8H 근무 시</p>
                             </div>
                         </div>
                     `;
@@ -480,6 +370,7 @@
                     const safe = name.replace(/\s+/g, '-');
                     document.getElementById(`rem-txt-${safe}`).innerText = t.remDays;
 
+                    // 40h
                     const pct40 = Math.min(100, (t.h40 / 40) * 100);
                     const bar40 = document.getElementById(`bar-40-${safe}`);
                     bar40.style.width = `${pct40}%`;
@@ -496,11 +387,12 @@
                         msg40.className = "text-xs text-right mt-1 text-indigo-500 font-medium";
                     }
 
+                    // 52h
                     const pct52 = Math.min(100, (t.h40 / 52) * 100);
                     const bar52 = document.getElementById(`bar-52-${safe}`);
                     bar52.style.width = `${pct52}%`;
                     document.getElementById(`pct-52-${safe}`).innerText = `${fmtH(t.h40)} / 52h`;
-
+                    
                     const msg52 = document.getElementById(`msg-52-${safe}`);
                     if (t.h40 > 52) {
                         bar52.className = "bg-red-500 h-2.5 rounded-full transition-all duration-700";
@@ -515,7 +407,7 @@
                         msg52.innerText = "안전 범위";
                         msg52.className = "text-xs text-right mt-1 text-slate-400";
                     }
-                    
+
                     document.getElementById(`cur-40-${safe}`).innerText = fmtH(t.h40);
                     const predH = t.h40 + (t.remDays * 8);
                     const predEl = document.getElementById(`pred-40-${safe}`);
@@ -529,15 +421,22 @@
                 if (datesSet.size === 0) return 0;
                 const sorted = Array.from(datesSet).sort();
                 const last = new Date(sorted[sorted.length - 1]);
+                // 마지막 기록일이 금~일이면 그 주는 남은 날 없음
                 if (last.getDay() === 0 || last.getDay() >= 5) return 0;
 
-                let count = 0, next = new Date(last);
+                let count = 0;
+                let next = new Date(last);
                 next.setDate(next.getDate() + 1);
+
+                // 이번주 금요일까지만 순회
                 while (next.getDay() >= 1 && next.getDay() <= 5) {
                     const y = next.getFullYear();
                     const m = String(next.getMonth()+1).padStart(2,'0');
                     const d = String(next.getDate()).padStart(2,'0');
-                    if (!PUBLIC_HOLIDAYS.has(`${y}-${m}-${d}`)) count++;
+                    const key = `${y}-${m}-${d}`;
+                    
+                    // API로 받아온 공휴일 리스트에 없으면 근무일로 인정
+                    if (!HOLIDAYS.has(key)) count++;
                     next.setDate(next.getDate() + 1);
                 }
                 return count;
@@ -577,6 +476,7 @@
                     headers.forEach((h, i) => o[h] = (v[i]||'').trim()); return o;
                 });
             }
+            
             window.adjDays = (name, val) => {
                 if (!remainingDaysAdjustments[name]) remainingDaysAdjustments[name] = 0;
                 remainingDaysAdjustments[name] += val; calculateAllTotals();
