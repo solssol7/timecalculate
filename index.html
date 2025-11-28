@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주간 근무시간 계산기 (보상휴가 지원 v12)</title>
+    <title>주간 근무시간 계산기 (v13 - 오류수정완료)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
@@ -16,10 +16,6 @@
             width: 60px; padding: 6px 8px;
             border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; text-align: center;
         }
-        .badge {
-            display: inline-flex; align-items: center; padding: 2px 8px;
-            border-radius: 9999px; font-size: 11px; font-weight: bold;
-        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen p-4 md:p-8">
@@ -27,7 +23,7 @@
     <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="p-6 md:p-8">
             <h1 class="text-3xl font-bold text-indigo-700 mb-2">주간 근무시간 계산기</h1>
-            <p class="text-slate-600">입력된 시간 형식(날짜 포함 등)을 자동으로 인식하고 <span class="text-indigo-600 font-bold">1.5배 보상휴가</span>를 계산합니다.</p>
+            <p class="text-slate-600">입력된 시간 형식과 기호(-)를 자동으로 인식하며, <span class="text-indigo-600 font-bold">1.5배 보상휴가</span>를 계산합니다.</p>
 
             <div class="mt-6 mb-8 p-6 bg-indigo-50 rounded-lg border border-indigo-100">
                 <label for="csvUploader" class="block text-sm font-bold text-indigo-800 mb-2">📂 근태 CSV 파일 선택</label>
@@ -102,7 +98,7 @@
                 reader.readAsText(file, "UTF-8"); 
             }
 
-            // --- API 연동 (공휴일 가져오기) ---
+            // --- API 연동 ---
             async function prepareHolidaysForData(data) {
                 const monthsToFetch = new Set();
                 const now = new Date();
@@ -195,7 +191,7 @@
                 resultsContainer.querySelectorAll('input, select').forEach(el => el.addEventListener('change', calculateAllTotals));
             }
 
-            // --- ★ 개선된 계산 로직 ---
+            // --- 계산 로직 ---
             function calculateAllTotals() {
                 const isInit = (summaryContainer.innerHTML.trim() === '');
                 const totals = {};
@@ -215,20 +211,19 @@
 
                     const dateStr = tr.children[0].innerText.trim();
                     const dateMatch = dateStr.match(/\d{4}-\d{2}-\d{2}/);
-                    const validDateStr = dateMatch ? dateMatch[0] : null; // "YYYY-MM-DD"
+                    const validDateStr = dateMatch ? dateMatch[0] : null;
 
                     if (validDateStr) totals[name].dates.add(validDateStr);
 
                     const inVal = tr.querySelector('.clock-in').value.trim();
                     const outVal = tr.querySelector('.clock-out').value.trim();
+                    // ★ 수정: timeToHours 함수가 이제 "-"를 안전하게 처리함
                     const leaveH = timeToHours(tr.querySelector('.leave-hours').value);
                     const type = tr.querySelector('.leave-selector').value;
 
-                    // 시간 파싱 (강화된 로직)
                     const inDate = parseSmartTime(inVal, validDateStr);
                     let outDate = parseSmartTime(outVal, validDateStr);
 
-                    // 마지막 행 기록
                     if (inDate) {
                         totals[name].lastClockIn = inDate;
                         totals[name].hasOutTime = !!outDate;
@@ -237,19 +232,21 @@
                     let dH40 = 0, dH45 = 0;
                     if (inDate) {
                         if (outDate) {
-                            // 익일 퇴근 처리
-                            if (outDate < inDate) outDate.setDate(outDate.getDate() + 1);
-                            
+                            if (outDate < inDate) outDate.setDate(outDate.getDate() + 1); // 익일 퇴근
                             const res = calcDuration(inDate, outDate);
                             dH40 = res.h40; dH45 = res.h45;
                         } else {
-                            // 퇴근 시간 없음 -> 실시간
                             const res = calcLiveDuration(inDate);
                             dH40 = res.h40; dH45 = res.h45;
                             totals[name].workingToday = true;
                             liveNeeded = true;
                         }
                     }
+
+                    // NaN 방지: 혹시라도 숫자가 아니면 0으로 처리
+                    if (isNaN(dH40)) dH40 = 0;
+                    if (isNaN(dH45)) dH45 = 0;
+                    if (isNaN(leaveH)) leaveH = 0;
 
                     dH40 = Math.max(0, dH40 - leaveH);
                     dH45 = Math.max(0, dH45 - leaveH);
@@ -388,25 +385,22 @@
 
                     document.getElementById(`rem-${safe}`).innerText = t.remDays;
 
-                    // 40시간 바 & 텍스트
                     updateBar(`bar-40-${safe}`, `pct-40-${safe}`, t.h40, 40);
                     document.getElementById(`val-40-${safe}`).innerText = fmtH(t.h40);
                     
                     const gap40 = t.h40 - 40;
                     const elGap40 = document.getElementById(`gap-40-${safe}`);
                     
-                    if(gap40 > 0) { 
+                    if(gap40 > 0.001) { // 약간의 오차 허용
                         elGap40.innerText = `+${fmtH(gap40)} 초과`; 
                         elGap40.className = "text-xs text-green-600 font-bold";
                         
-                        // ★ 보상 휴가 계산 및 표시
                         const compBox = document.getElementById(`comp-box-${safe}`);
                         compBox.classList.remove('hidden');
 
-                        const overtimeMins = gap40 * 60; 
+                        const overtimeMins = Math.floor(gap40 * 60); 
                         const totalCompMins = Math.floor(overtimeMins * 1.5);
                         
-                        // 단위 변환: 연차(8h=480m) -> 반차(4h=240m) -> 반반차(2h=120m)
                         let temp = totalCompMins;
                         const c8 = Math.floor(temp / 480); temp %= 480;
                         const c4 = Math.floor(temp / 240); temp %= 240;
@@ -420,7 +414,6 @@
                         document.getElementById(`comp-4h-${safe}`).innerText = c4 > 0 ? `${c4}개` : '-';
                         document.getElementById(`comp-2h-${safe}`).innerText = c2 > 0 ? `${c2}개` : '-';
                         
-                        // 나머지 시간 표시
                         if (cRem > 0) {
                              const rh = Math.floor(cRem / 60);
                              const rm = Math.floor(cRem % 60);
@@ -438,7 +431,6 @@
                         document.getElementById(`comp-box-${safe}`).classList.add('hidden');
                     }
 
-                    // 52시간 업데이트
                     updateBar(`bar-52-${safe}`, `pct-52-${safe}`, t.h40, 52, true);
                     document.getElementById(`val-52-${safe}`).innerText = `${fmtH(t.h40)} / 52h`;
                      const elStat52 = document.getElementById(`status-52-${safe}`);
@@ -446,8 +438,6 @@
                     else if(t.h40 > 45) { elStat52.innerText = "⚠️ 주의"; elStat52.className = "text-xs text-orange-500 font-bold"; }
                     else { elStat52.innerText = "안전"; elStat52.className = "text-xs text-slate-400"; }
 
-
-                    // 퇴근 예측
                     const predBox = document.getElementById(`predict-box-${safe}`);
                     if (t.workingToday && t.predict40) {
                         predBox.classList.remove('hidden');
@@ -459,29 +449,36 @@
                 });
             }
 
-            // --- ★ 핵심: NaN 방지용 시간 파서 ---
+            // --- ★ 핵심: NaN 방지 파서 ---
             function parseSmartTime(timeStr, dateStr) {
-                if (!timeStr || timeStr === '-') return null;
+                if (!timeStr || timeStr.trim() === '-' || timeStr.trim() === '') return null;
                 
-                // 1. "YYYY-MM-DD HH:MM:SS" 형식 통째로 들어왔을 때 (Date.parse 시도)
-                // 브라우저마다 다르지만 T없는 문자열도 대부분 처리함.
+                // 1. "YYYY-MM-DD HH:MM:SS" 형식 시도
                 const d = new Date(timeStr);
                 if (!isNaN(d.getTime())) return d;
 
-                // 2. 파싱 실패 시, 정규식으로 HH:MM:SS 추출 시도
-                // 예: "2025-11-24 09:19:58" -> "09:19:58"
+                // 2. "HH:MM:SS" 추출 시도
                 const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
                 if (match) {
                     const h = parseInt(match[1]);
                     const m = parseInt(match[2]);
                     const s = match[3] ? parseInt(match[3]) : 0;
-                    
                     const targetDate = dateStr ? new Date(dateStr) : new Date();
                     targetDate.setHours(h, m, s, 0);
                     return targetDate;
                 }
-                
                 return null;
+            }
+
+            // ★ 중요 수정: "-" 문자가 들어오면 0을 반환하도록 처리
+            function timeToHours(s) {
+                if(!s || s.trim() === '-' || s.trim() === '') return 0;
+                const parts = s.split(':');
+                if (parts.length < 2) return 0; // "HH:MM" 형식이 아니면 0
+                const h = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10);
+                if (isNaN(h)) return 0;
+                return h + (m||0)/60;
             }
 
             function updateBar(barId, pctId, val, max, warning=false) {
@@ -575,13 +572,8 @@
                 return count;
             }
 
-            function timeToHours(s) {
-                if(!s) return 0;
-                const [h,m] = s.split(':').map(Number);
-                return h + (m||0)/60;
-            }
-
             function fmtH(n) {
+                if (isNaN(n)) return "0시간 0분";
                 const h = Math.floor(n);
                 const m = Math.round((n-h)*60);
                 return `${h}시간 ${m}분`;
