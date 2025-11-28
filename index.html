@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주간 근무시간 계산기 (v13 - 오류수정완료)</title>
+    <title>주간 근무시간 계산기 (v14 - 예측로직 수정완료)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
@@ -23,7 +23,7 @@
     <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="p-6 md:p-8">
             <h1 class="text-3xl font-bold text-indigo-700 mb-2">주간 근무시간 계산기</h1>
-            <p class="text-slate-600">입력된 시간 형식과 기호(-)를 자동으로 인식하며, <span class="text-indigo-600 font-bold">1.5배 보상휴가</span>를 계산합니다.</p>
+            <p class="text-slate-600">식사 포함/제외 기준에 맞춰 <span class="text-indigo-600 font-bold">퇴근 시각을 정확히 분리</span>하여 예측합니다.</p>
 
             <div class="mt-6 mb-8 p-6 bg-indigo-50 rounded-lg border border-indigo-100">
                 <label for="csvUploader" class="block text-sm font-bold text-indigo-800 mb-2">📂 근태 CSV 파일 선택</label>
@@ -217,7 +217,6 @@
 
                     const inVal = tr.querySelector('.clock-in').value.trim();
                     const outVal = tr.querySelector('.clock-out').value.trim();
-                    // ★ 수정: timeToHours 함수가 이제 "-"를 안전하게 처리함
                     const leaveH = timeToHours(tr.querySelector('.leave-hours').value);
                     const type = tr.querySelector('.leave-selector').value;
 
@@ -232,7 +231,7 @@
                     let dH40 = 0, dH45 = 0;
                     if (inDate) {
                         if (outDate) {
-                            if (outDate < inDate) outDate.setDate(outDate.getDate() + 1); // 익일 퇴근
+                            if (outDate < inDate) outDate.setDate(outDate.getDate() + 1); 
                             const res = calcDuration(inDate, outDate);
                             dH40 = res.h40; dH45 = res.h45;
                         } else {
@@ -243,11 +242,9 @@
                         }
                     }
 
-                    // NaN 방지: 혹시라도 숫자가 아니면 0으로 처리
                     if (isNaN(dH40)) dH40 = 0;
                     if (isNaN(dH45)) dH45 = 0;
-                    if (isNaN(leaveH)) leaveH = 0;
-
+                    
                     dH40 = Math.max(0, dH40 - leaveH);
                     dH45 = Math.max(0, dH45 - leaveH);
 
@@ -271,8 +268,17 @@
                     if (t.workingToday && t.lastClockIn && !t.hasOutTime) {
                         const gap40 = 40 - t.h40 - (t.remDays * 8);
                         const gap45 = 45 - t.h45 - (t.remDays * 9);
-                        t.predict40 = calcExitTime(new Date(), gap40, t.lastClockIn);
-                        t.predict45 = calcExitTime(new Date(), gap45, t.lastClockIn);
+                        
+                        // ★★★ v14 수정: 40시간과 45시간의 계산 방식을 분리 ★★★
+                        // 40시간 (식사제외) -> 점심시간이 끼면 1시간 더 늦게 퇴근해야 함 (기존 calcExitTime)
+                        t.predict40 = calcExitTimeWithLunch(new Date(), gap40, t.lastClockIn);
+                        
+                        // 45시간 (식사포함) -> 점심시간도 근무(체류)에 포함되므로, 그냥 단순 시간 더하기
+                        if (gap45 > 0) {
+                            t.predict45 = new Date(new Date().getTime() + gap45 * 3600000);
+                        } else {
+                            t.predict45 = null; // 이미 달성
+                        }
                     }
                 });
 
@@ -391,7 +397,7 @@
                     const gap40 = t.h40 - 40;
                     const elGap40 = document.getElementById(`gap-40-${safe}`);
                     
-                    if(gap40 > 0.001) { // 약간의 오차 허용
+                    if(gap40 > 0.001) { 
                         elGap40.innerText = `+${fmtH(gap40)} 초과`; 
                         elGap40.className = "text-xs text-green-600 font-bold";
                         
@@ -439,7 +445,7 @@
                     else { elStat52.innerText = "안전"; elStat52.className = "text-xs text-slate-400"; }
 
                     const predBox = document.getElementById(`predict-box-${safe}`);
-                    if (t.workingToday && t.predict40) {
+                    if (t.workingToday && (t.predict40 || t.predict45)) {
                         predBox.classList.remove('hidden');
                         updatePredictText(`time-40-${safe}`, t.predict40);
                         updatePredictText(`time-45-${safe}`, t.predict45);
@@ -449,15 +455,10 @@
                 });
             }
 
-            // --- ★ 핵심: NaN 방지 파서 ---
             function parseSmartTime(timeStr, dateStr) {
                 if (!timeStr || timeStr.trim() === '-' || timeStr.trim() === '') return null;
-                
-                // 1. "YYYY-MM-DD HH:MM:SS" 형식 시도
                 const d = new Date(timeStr);
                 if (!isNaN(d.getTime())) return d;
-
-                // 2. "HH:MM:SS" 추출 시도
                 const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
                 if (match) {
                     const h = parseInt(match[1]);
@@ -470,11 +471,10 @@
                 return null;
             }
 
-            // ★ 중요 수정: "-" 문자가 들어오면 0을 반환하도록 처리
             function timeToHours(s) {
                 if(!s || s.trim() === '-' || s.trim() === '') return 0;
                 const parts = s.split(':');
-                if (parts.length < 2) return 0; // "HH:MM" 형식이 아니면 0
+                if (parts.length < 2) return 0; 
                 const h = parseInt(parts[0], 10);
                 const m = parseInt(parts[1], 10);
                 if (isNaN(h)) return 0;
@@ -512,7 +512,8 @@
                 }
             }
 
-            function calcExitTime(now, hoursNeeded, clockIn) {
+            // --- ★ 40시간(식사제외) 전용 예측 함수: 점심시간 겹치면 1시간 미룸 ---
+            function calcExitTimeWithLunch(now, hoursNeeded, clockIn) {
                 if (hoursNeeded <= 0) return null; 
                 let simul = new Date(now.getTime());
                 let remainMs = hoursNeeded * 3600000;
@@ -521,11 +522,14 @@
                 const lunchEnd = new Date(clockIn); lunchEnd.setHours(12,30,0,0);
 
                 if (simul < lunchStart) {
+                    // 점심 전: 남은 시간이 점심 시작까지의 시간보다 길면, 점심시간(1h) 추가
                     if (remainMs > (lunchStart - simul)) return new Date(simul.getTime() + remainMs + 3600000); 
                     else return new Date(simul.getTime() + remainMs);
                 } else if (simul >= lunchStart && simul < lunchEnd) {
+                    // 점심 중: 12:30부터 근무 재개
                     return new Date(lunchEnd.getTime() + remainMs);
                 } else {
+                    // 점심 후: 그냥 더함
                     return new Date(simul.getTime() + remainMs);
                 }
             }
@@ -533,7 +537,7 @@
             function calcDuration(inDate, outDate) {
                 let durMs = outDate - inDate;
                 if (durMs < 0) return { h40:0, h45:0 };
-                const h45 = durMs / 3600000;
+                const h45 = durMs / 3600000; // 45시간용은 식사포함(단순 체류시간)
 
                 const lStart = new Date(inDate); lStart.setHours(11,30,0,0);
                 const lEnd = new Date(inDate); lEnd.setHours(12,30,0,0);
@@ -543,7 +547,7 @@
                 let lunchDed = 0;
                 if (overlapEnd > overlapStart) lunchDed = overlapEnd - overlapStart;
                 
-                const h40 = (durMs - lunchDed) / 3600000;
+                const h40 = (durMs - lunchDed) / 3600000; // 40시간용은 식사제외
                 return { h40, h45 };
             }
 
