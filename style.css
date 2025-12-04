@@ -1,0 +1,119 @@
+/* 기본 설정 */
+body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background-color: #f5f7fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.dashboard-container {
+    background: white;
+    width: 400px;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+h2 { margin: 0 0 5px 0; color: #333; }
+.subtitle { margin: 0 0 20px 0; color: #888; font-size: 0.9em; }
+
+/* 입력창 (테스트용) */
+.input-section {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f0f2f5;
+    border-radius: 8px;
+    font-size: 0.9em;
+}
+
+/* 1. 프로그레스 바 & 잔여 시간 스타일 */
+.status-card { margin-bottom: 20px; }
+
+.time-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    color: #555;
+}
+
+.progress-track {
+    background-color: #e9ecef;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    background-color: #4CAF50; /* 기본 초록색 */
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+/* 초과 근무 시 색상 변경 */
+.progress-fill.over { background-color: #FF9800; } /* 40시간 초과 */
+.progress-fill.limit { background-color: #F44336; } /* 52시간 근접 */
+
+.remain-info {
+    font-size: 0.9em;
+    color: #666;
+    text-align: right;
+}
+.status-normal { color: #4CAF50; font-weight: bold; }
+.status-over { color: #FF9800; font-weight: bold; }
+
+/* 2. 보상 휴가 카드 스타일 */
+.overtime-card {
+    border: 1px solid #FF9800;
+    background-color: #FFF8E1;
+    padding: 15px;
+    border-radius: 12px;
+    animation: fadeIn 0.5s;
+}
+
+.overtime-card.hidden { display: none; }
+
+.card-header { color: #F57C00; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;}
+.desc { font-size: 0.85em; color: #5D4037; margin: 0 0 15px 0; line-height: 1.4; }
+
+/* 배지 스타일 */
+.badge-container { display: flex; gap: 8px; }
+
+.reward-badge {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.8em;
+    color: #aaa;
+    opacity: 0.5; /* 비활성 상태 */
+}
+
+/* 활성화된 배지 */
+.reward-badge.active {
+    border-color: #2196F3;
+    color: #1565C0;
+    font-weight: bold;
+    opacity: 1;
+    background-color: #E3F2FD;
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.2);
+}
+
+.badge-tag {
+    background: #1565C0;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    margin-right: 4px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
