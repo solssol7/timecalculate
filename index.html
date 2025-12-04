@@ -35,6 +35,12 @@
         /* 모달 스타일 */
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-y: hidden; }
+        
+        /* 프로그레스 바 애니메이션 */
+        .progress-striped {
+            background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+            background-size: 1rem 1rem;
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
@@ -46,7 +52,7 @@
                 <div class="flex items-center gap-2">
                     <div>
                         <h1 class="text-3xl font-bold text-indigo-700 mb-1">근무시간 정산 리포트 <span class="text-sm font-normal text-slate-500 bg-indigo-50 px-2 py-1 rounded-lg ml-2">Pro</span></h1>
-                        <p class="text-xs text-slate-500">주52시간 경고 • 1/N 스마트 계산 • 코어타임 체크</p>
+                        <p class="text-xs text-slate-500">주52시간 경고 • 40시간 목표 계산 • 예상 퇴근시간</p>
                     </div>
                     <button onclick="toggleModal()" class="ml-2 text-slate-400 hover:text-indigo-600 transition-colors" title="기능 가이드">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -97,7 +103,7 @@
         <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
             <div class="modal-content py-4 text-left px-6">
                 <div class="flex justify-between items-center pb-3 border-b">
-                    <p class="text-xl font-bold text-indigo-600">현재 지원되는 기능 (v1.2)</p>
+                    <p class="text-xl font-bold text-indigo-600">현재 지원되는 기능 (v1.3)</p>
                     <div class="modal-close cursor-pointer z-50" onclick="toggleModal()">
                         <svg class="fill-current text-black" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
                             <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path>
@@ -108,27 +114,27 @@
                 <div class="my-5 space-y-3 text-sm text-slate-700">
                     <div class="flex gap-2">
                         <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">자동 시간 인식:</span> 'YYYY-MM-DD HH:mm:ss' 같은 긴 데이터도 'HH:mm'만 똑똑하게 추출</div>
+                        <div><span class="font-bold">자동 시간 인식:</span> 'YYYY-MM-DD HH:mm:ss'도 처리 가능</div>
                     </div>
                     <div class="flex gap-2">
                         <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">점심시간 자동 공제:</span> 11:30~12:30 포함 근무 시 1시간 자동 차감</div>
+                        <div><span class="font-bold">점심시간 자동 공제:</span> 11:30~12:30 1시간 자동 차감</div>
+                    </div>
+                     <div class="flex gap-2">
+                        <span class="font-bold text-indigo-500">✓</span>
+                        <div><span class="font-bold">주 40시간 목표 관리:</span> 남은 시간 및 일일 권장 근무시간 계산</div>
                     </div>
                     <div class="flex gap-2">
                         <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">근무강도 시각화:</span> 8시간(보라), 초과근무(빨간 빗금) 그래프 표시</div>
+                        <div><span class="font-bold">예상 퇴근 시간:</span> 남은 기간 균등 분배 시 예상 퇴근 시간 제공</div>
                     </div>
                     <div class="flex gap-2">
                         <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">스마트 잔여일 계산:</span> 주말/공휴일을 제외한 실제 남은 평일 수 자동 계산</div>
+                        <div><span class="font-bold">코어타임 체크:</span> 지정 시간 위반 시 경고</div>
                     </div>
                     <div class="flex gap-2">
                         <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">코어타임 체크:</span> 지정된 시간(기본 12:30~17:30) 위반 시 <span class="text-red-500 underline decoration-wavy">빨간 밑줄</span> 경고</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <span class="font-bold text-indigo-500">✓</span>
-                        <div><span class="font-bold">주52시간 경고:</span> 주간 총 근무시간 52시간 근접 시 알림</div>
+                        <div><span class="font-bold">주52시간 경고:</span> 법정 근로시간 초과 주의 알림</div>
                     </div>
                 </div>
 
@@ -191,7 +197,7 @@
             },
 
             fmtH(n) {
-                if (isNaN(n)) return "0h 0m";
+                if (isNaN(n) || n < 0) return "0h 0m";
                 const h = Math.floor(n);
                 const m = Math.round((n - h) * 60);
                 return `${h}시간 ${m}분`;
@@ -201,6 +207,16 @@
                 const h = Math.floor(n); 
                 const m = Math.round((n - h) * 60);
                 return `${h}h${m > 0 ? ` ${m}m` : ''}`;
+            },
+
+            addTime(baseDate, hoursToAdd) {
+                // 점심시간 1시간 고려하여 퇴근시간 계산 (단순화: 근무시간 + 1시간 + 시작시간)
+                // 실제로는 복잡하지만 여기선 9to6 가정하여 퇴근시간 추정용
+                const d = new Date(baseDate);
+                // 근무시간 + 점심 1시간
+                const totalMins = (hoursToAdd + 1) * 60; 
+                d.setMinutes(d.getMinutes() + totalMins);
+                return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
             },
 
             getMonday(d) {
@@ -252,6 +268,9 @@
                     titleHtml = `🗓️ ${sStr} ~ ${eStr} 주간`;
                 }
 
+                // 주간 모드일 때만 40시간 계산기 표시
+                const showSmartCalc = currentTab === 'weekly' ? '' : 'hidden';
+
                 return `
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm section-container" id="section-${sectionId}" data-key="${key}" data-name="${name}">
                         <div class="bg-white p-5 border-b border-slate-100 flex flex-col gap-4">
@@ -271,18 +290,29 @@
                                 <div><p class="text-sm font-bold text-red-700">주 52시간 초과 주의</p></div>
                             </div>
 
-                            <div id="smart-calc-${sectionId}" class="hidden bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                                <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xl">⚖️</span>
-                                        <div>
-                                            <p class="text-sm font-bold text-indigo-800">1/N 스마트 분배</p>
-                                            <p class="text-xs text-indigo-600">남은 평일 <span id="rem-days-${sectionId}" class="font-bold">0</span>일, 하루 <span id="daily-target-${sectionId}" class="font-bold bg-white px-1 rounded">0h</span>씩</p>
-                                        </div>
+                            <div id="smart-calc-${sectionId}" class="${showSmartCalc} bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                <div class="flex flex-col gap-3">
+                                    <div class="flex justify-between items-end">
+                                        <p class="text-sm font-bold text-slate-700">⏳ 주 40시간 현황</p>
+                                        <p id="rem-hours-text-${sectionId}" class="text-xs font-bold text-indigo-600">-</p>
                                     </div>
-                                    <div class="flex gap-1">
-                                        <button onclick="App.adjustDays('${sectionId}', -1)" class="w-6 h-6 bg-white border rounded text-indigo-600 font-bold hover:bg-indigo-50">-</button>
-                                        <button onclick="App.adjustDays('${sectionId}', 1)" class="w-6 h-6 bg-white border rounded text-indigo-600 font-bold hover:bg-indigo-50">+</button>
+                                    
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1 overflow-hidden">
+                                        <div id="progress-${sectionId}" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                    </div>
+
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center text-xs text-slate-600 gap-2 md:gap-0 border-t border-slate-200 pt-3 mt-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="bg-white border rounded px-1.5 py-0.5">남은 평일: <b id="rem-days-${sectionId}">0</b>일</span>
+                                            <div class="flex gap-0.5">
+                                                <button onclick="App.adjustDays('${sectionId}', -1)" class="w-5 h-5 bg-white border rounded hover:bg-slate-50">-</button>
+                                                <button onclick="App.adjustDays('${sectionId}', 1)" class="w-5 h-5 bg-white border rounded hover:bg-slate-50">+</button>
+                                            </div>
+                                        </div>
+                                        <div class="text-right w-full md:w-auto">
+                                            <p>남은 기간 매일 <span id="daily-target-${sectionId}" class="font-bold text-indigo-700 text-sm bg-indigo-50 px-1 rounded">0h</span> 근무 권장</p>
+                                            <p id="exit-estimate-${sectionId}" class="text-slate-400 mt-0.5">(09:00 출근 시 18:00 퇴근)</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -501,6 +531,9 @@
                 const sections = document.querySelectorAll('.section-container');
                 const coreStart = document.getElementById('core-start').value;
                 const coreEnd = document.getElementById('core-end').value;
+                
+                // 40시간 목표 설정
+                const TARGET_WEEKLY_HOURS = 40;
 
                 sections.forEach(sec => {
                     const sectionId = sec.id.replace('section-', '');
@@ -542,11 +575,11 @@
 
                         UIManager.updateRowVisuals(tr, dayHours);
                         
+                        // 코어타임 체크 로직
                         const coreMsg = tr.querySelector('.core-msg');
                         const dateCell = tr.querySelector('.date-cell');
                         if (type === 'normal' && inDate) {
                             const cS = TimeUtils.parseSmartTime(coreStart, dateText);
-                            const cE = TimeUtils.parseSmartTime(coreEnd, dateText); // 종료시간도 체크 가능
                             if (inDate > cS) {
                                 coreMsg.classList.remove('hidden');
                                 dateCell.classList.add('core-violation');
@@ -562,35 +595,69 @@
                         totalHours += dayHours;
                     });
 
+                    // 1. 총 근무시간 업데이트
                     document.getElementById(`total-${sectionId}`).innerText = TimeUtils.fmtH(totalHours);
                     
+                    // 2. 주 52시간 경고
                     const warnBox = document.getElementById(`warning-52h-${sectionId}`);
                     if (totalHours >= 52) warnBox.classList.remove('hidden');
                     else warnBox.classList.add('hidden');
 
-                    const smartBox = document.getElementById(`smart-calc-${sectionId}`);
-                    if (this.state.currentTab === 'weekly' && lastWorkedDateStr) {
-                        const start = new Date(lastWorkedDateStr);
-                        start.setDate(start.getDate() + 1);
-                        const endStr = new Date(sectionKey); 
-                        endStr.setDate(endStr.getDate() + 6);
-
-                        const remAuto = TimeUtils.calcWorkingDays(start, endStr, this.state.holidays);
-                        const adj = this.state.adjustments[sectionId] || 0;
-                        const finalRemDays = Math.max(0, remAuto + adj);
-
-                        if (finalRemDays > 0) {
+                    // 3. 스마트 계산 (주간 모드인 경우)
+                    if (this.state.currentTab === 'weekly') {
+                        const smartBox = document.getElementById(`smart-calc-${sectionId}`);
+                        if(smartBox && lastWorkedDateStr) {
                             smartBox.classList.remove('hidden');
+
+                            // 40시간 대비 잔여 시간 계산
+                            const hoursLeft = Math.max(0, TARGET_WEEKLY_HOURS - totalHours);
+                            const progressPct = Math.min(100, (totalHours / TARGET_WEEKLY_HOURS) * 100);
+                            
+                            // 텍스트 및 바 업데이트
+                            document.getElementById(`rem-hours-text-${sectionId}`).innerText = 
+                                hoursLeft > 0 ? `${TimeUtils.fmtH(hoursLeft)} 남음` : `목표 달성 완료! (+${TimeUtils.fmtH(totalHours - TARGET_WEEKLY_HOURS)})`;
+                            
+                            const pBar = document.getElementById(`progress-${sectionId}`);
+                            pBar.style.width = `${progressPct}%`;
+                            if(totalHours > TARGET_WEEKLY_HOURS) {
+                                pBar.classList.add('bg-red-500', 'progress-striped');
+                                pBar.classList.remove('bg-indigo-600');
+                            } else {
+                                pBar.classList.add('bg-indigo-600');
+                                pBar.classList.remove('bg-red-500', 'progress-striped');
+                            }
+
+                            // 남은 일수 계산
+                            const start = new Date(lastWorkedDateStr);
+                            start.setDate(start.getDate() + 1); // 마지막 근무일 다음날부터
+                            const endStr = new Date(sectionKey); 
+                            endStr.setDate(endStr.getDate() + 6); // 일요일까지
+
+                            const remAuto = TimeUtils.calcWorkingDays(start, endStr, this.state.holidays);
+                            const adj = this.state.adjustments[sectionId] || 0;
+                            const finalRemDays = Math.max(0, remAuto + adj);
+
                             document.getElementById(`rem-days-${sectionId}`).innerText = finalRemDays;
                             
-                            const needed = Math.max(0, 40 - totalHours);
-                            const perDay = needed / finalRemDays;
-                            document.getElementById(`daily-target-${sectionId}`).innerText = TimeUtils.fmtH(perDay);
-                        } else {
-                            smartBox.classList.add('hidden');
+                            if (finalRemDays > 0 && hoursLeft > 0) {
+                                const perDay = hoursLeft / finalRemDays;
+                                document.getElementById(`daily-target-${sectionId}`).innerText = TimeUtils.fmtH(perDay);
+                                
+                                // 퇴근 예상 시간 (09시 출근 기준)
+                                // 9시 출근 + 점심 1시간 + 근무시간
+                                const dummyDate = new Date(); dummyDate.setHours(9,0,0,0);
+                                const exitTimeStr = TimeUtils.addTime(dummyDate, perDay);
+                                document.getElementById(`exit-estimate-${sectionId}`).innerText = 
+                                    `(09:00 출근 시 ${exitTimeStr} 퇴근)`;
+                            } else if (hoursLeft <= 0) {
+                                document.getElementById(`daily-target-${sectionId}`).innerText = "0h";
+                                document.getElementById(`exit-estimate-${sectionId}`).innerText = "목표 근무시간 충족";
+                            } else {
+                                // 남은 날짜는 없는데 시간이 남은 경우
+                                document.getElementById(`daily-target-${sectionId}`).innerText = "일정 부족";
+                                document.getElementById(`exit-estimate-${sectionId}`).innerText = "추가 근무 필요";
+                            }
                         }
-                    } else {
-                        smartBox.classList.add('hidden');
                     }
                 });
             }
