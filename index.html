@@ -3,580 +3,647 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주간/월간 근무시간 계산기 (시각화+월별정산 v15)</title>
+    <title>주간/월간 근무시간 계산기 (Pro 버전)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
         .time-input {
-            width: 100%; min-width: 130px; padding: 4px 8px;
+            width: 100%; min-width: 100px; padding: 4px 8px;
             border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;
         }
         .time-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); }
         .leave-hours-input {
-            width: 50px; padding: 4px 8px;
+            width: 40px; padding: 4px;
             border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; text-align: center;
         }
         
         /* 시각화 바 스타일 */
         .vis-bar-bg { background-color: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; width: 100px; display: inline-block; vertical-align: middle; }
-        .vis-bar-fill { height: 100%; background-color: #6366f1; }
-        .vis-bar-over { height: 100%; background-color: #ef4444; background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem; }
+        .vis-bar-fill { height: 100%; background-color: #6366f1; transition: width 0.5s ease; }
+        .vis-bar-over { height: 100%; background-color: #ef4444; background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem; transition: width 0.5s ease; }
+        
+        /* 탭 스타일 */
+        .tab-btn { @apply px-4 py-2 font-bold text-sm rounded-lg transition-colors text-slate-500 hover:text-indigo-600 hover:bg-indigo-50; }
+        .tab-btn.active { @apply bg-indigo-100 text-indigo-700; }
+
+        /* 코어타임 위반 스타일 */
+        .core-violation { text-decoration: underline; text-decoration-color: #ef4444; text-decoration-style: wavy; color: #ef4444; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-end">
-            <div>
-                <h1 class="text-3xl font-bold text-indigo-700 mb-1">근무시간 정산 리포트</h1>
-                <p class="text-sm text-slate-500">월별 자동 분리 • 1.5배 보상휴가 자동 계산 • 근무 패턴 시각화</p>
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[90vh]">
+        <div class="p-6 border-b border-slate-100 bg-white sticky top-0 z-10">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-indigo-700 mb-1">근무시간 정산 리포트 <span class="text-sm font-normal text-slate-500 bg-indigo-50 px-2 py-1 rounded-lg ml-2">Pro</span></h1>
+                    <p class="text-xs text-slate-500">주52시간 경고 • 1/N 스마트 계산 • 코어타임 체크</p>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
+                    <label for="csvUploader" class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold text-sm shadow transition-colors inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        CSV 파일 업로드
+                    </label>
+                    <input type="file" id="csvUploader" accept=".csv" class="hidden">
+                </div>
             </div>
-            <div class="mt-4 md:mt-0">
-                <label for="csvUploader" class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold text-sm shadow transition-colors inline-flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    CSV 파일 업로드
-                </label>
-                <input type="file" id="csvUploader" accept=".csv" class="hidden">
+
+            <div class="flex flex-col md:flex-row justify-between items-center bg-slate-50 p-3 rounded-xl gap-4 border border-slate-200">
+                <div class="flex space-x-1 bg-white p-1 rounded-lg shadow-sm border border-slate-200">
+                    <button id="tab-weekly" class="tab-btn active" onclick="switchTab('weekly')">주간 보기</button>
+                    <button id="tab-monthly" class="tab-btn" onclick="switchTab('monthly')">월간 보기</button>
+                </div>
+                
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-bold text-indigo-600">⏰ 코어타임 설정:</span>
+                    <input type="time" id="core-start" value="13:00" class="border border-slate-300 rounded px-2 py-1 text-xs">
+                    <span>~</span>
+                    <input type="time" id="core-end" value="16:00" class="border border-slate-300 rounded px-2 py-1 text-xs">
+                    <button onclick="calculateAllTotals()" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">적용</button>
+                </div>
             </div>
         </div>
 
         <div id="loading-spinner" class="hidden text-center py-12">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
-            <p class="mt-3 text-indigo-600 font-medium text-sm">데이터 분석 및 API 연동 중...</p>
+            <p class="mt-3 text-indigo-600 font-medium text-sm">데이터 분석 중...</p>
         </div>
 
-        <div id="results-container" class="p-6 space-y-12">
-            <div id="placeholder" class="text-center text-slate-400 py-20 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+        <div id="results-container" class="p-6 space-y-10 flex-grow bg-slate-50">
+            <div id="placeholder" class="text-center text-slate-400 py-20 border-2 border-dashed border-slate-200 rounded-xl bg-white">
                 <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <p class="text-lg font-medium text-slate-500">근태 CSV 파일을 업로드해주세요.</p>
-                <p class="text-sm mt-2">여러 달의 데이터가 섞여 있어도 자동으로 월별로 분류합니다.</p>
+                <p class="text-sm mt-2">주간/월간 자동 분류 및 분석이 시작됩니다.</p>
             </div>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const API_KEY = "b060c24914cc86079258cce70c2f5ed20157eea835b61224c687501034d7a6b6";
-            let HOLIDAYS = new Set();
-            let FETCHED_MONTHS = new Set();
+        const API_KEY = "b060c24914cc86079258cce70c2f5ed20157eea835b61224c687501034d7a6b6";
+        let HOLIDAYS = new Set();
+        let FETCHED_MONTHS = new Set();
+        let rawData = [];
+        let groupedData = { weekly: {}, monthly: {} };
+        let currentTab = 'weekly';
+        let liveUpdateInterval = null;
+        let remainingDaysAdjustments = {}; 
+
+        const csvUploader = document.getElementById('csvUploader');
+        const resultsContainer = document.getElementById('results-container');
+        const placeholder = document.getElementById('placeholder');
+        const spinner = document.getElementById('loading-spinner');
+
+        csvUploader.addEventListener('change', handleFileUpload);
+
+        window.switchTab = (tabName) => {
+            currentTab = tabName;
+            document.getElementById('tab-weekly').className = `tab-btn ${tabName === 'weekly' ? 'active' : ''}`;
+            document.getElementById('tab-monthly').className = `tab-btn ${tabName === 'monthly' ? 'active' : ''}`;
+            if (rawData.length > 0) renderCurrentTab();
+        };
+
+        async function handleFileUpload(event) {
+            if (liveUpdateInterval) clearInterval(liveUpdateInterval);
+            const file = event.target.files[0];
+            if (!file) return;
+
+            placeholder.style.display = 'none';
+            resultsContainer.innerHTML = '';
+            spinner.classList.remove('hidden');
+            remainingDaysAdjustments = {};
             
-            // 데이터 구조: { "홍길동": { "2025-11": [Rows...], "2025-12": [Rows...] } }
-            let allCsvData = {}; 
-            let liveUpdateInterval = null;
-            let remainingDaysAdjustments = {}; // { "홍길동_2025-11": 0 }
-
-            const csvUploader = document.getElementById('csvUploader');
-            const resultsContainer = document.getElementById('results-container');
-            const placeholder = document.getElementById('placeholder');
-            const spinner = document.getElementById('loading-spinner');
-
-            csvUploader.addEventListener('change', handleFileUpload);
-
-            async function handleFileUpload(event) {
-                if (liveUpdateInterval) clearInterval(liveUpdateInterval);
-                const file = event.target.files[0];
-                if (!file) return;
-
-                placeholder.style.display = 'none';
-                resultsContainer.innerHTML = '';
-                spinner.classList.remove('hidden');
-                remainingDaysAdjustments = {};
-                
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    try {
-                        const data = parseCSV(e.target.result);
-                        if (!data.length) throw new Error("데이터가 없습니다.");
-                        
-                        await prepareHolidaysForData(data);
-                        processCsvData(data); // 데이터 그룹핑 및 렌더링
-                        spinner.classList.add('hidden');
-                    } catch (err) {
-                        spinner.classList.add('hidden');
-                        alert("오류: " + err.message);
-                        placeholder.style.display = 'block';
-                    }
-                };
-                reader.readAsText(file, "UTF-8"); 
-            }
-
-            // --- API 연동 ---
-            async function prepareHolidaysForData(data) {
-                const monthsToFetch = new Set();
-                const now = new Date();
-                // 현재 월도 기본으로 추가 (예측용)
-                monthsToFetch.add(`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`);
-                
-                data.forEach(row => {
-                    if (row.근무일자) {
-                        const parts = row.근무일자.split('-'); 
-                        if (parts.length >= 2) monthsToFetch.add(`${parts[0]}${parts[1]}`);
-                    }
-                });
-
-                const promises = [];
-                for (const ym of monthsToFetch) {
-                    if (!FETCHED_MONTHS.has(ym)) {
-                        promises.push(fetchHolidaysFromApi(ym.substring(0,4), ym.substring(4,6)));
-                        FETCHED_MONTHS.add(ym);
-                    }
-                }
-                if (promises.length) await Promise.all(promises);
-            }
-
-            async function fetchHolidaysFromApi(year, month) {
-                const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&solMonth=${month}&ServiceKey=${API_KEY}&_type=json&numOfRows=50`;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
                 try {
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    const items = json.response?.body?.items?.item;
-                    if (items) {
-                        (Array.isArray(items) ? items : [items]).forEach(item => {
-                            if (item.isHoliday === 'Y') {
-                                const s = String(item.locdate);
-                                HOLIDAYS.add(`${s.substring(0,4)}-${s.substring(4,6)}-${s.substring(6,8)}`);
-                            }
-                        });
-                    }
-                } catch (e) { console.error(e); }
-            }
-
-            // --- 데이터 처리 (월별 그룹핑) ---
-            function processCsvData(data) {
-                allCsvData = {};
-                data.forEach(row => {
-                    const name = row.이름;
-                    const dateStr = row.근무일자;
-                    if (!name || !dateStr) return;
-
-                    // YYYY-MM 추출
-                    const monthKey = dateStr.substring(0, 7); // "2025-11"
-
-                    if (!allCsvData[name]) allCsvData[name] = {};
-                    if (!allCsvData[name][monthKey]) allCsvData[name][monthKey] = [];
-                    allCsvData[name][monthKey].push(row);
-                });
-                renderAll();
-                calculateAllTotals();
-            }
-
-            function renderAll() {
-                resultsContainer.innerHTML = '';
-                const sortedNames = Object.keys(allCsvData).sort();
-
-                sortedNames.forEach(name => {
-                    // 직원별 컨테이너
-                    const empDiv = document.createElement('div');
-                    empDiv.className = "space-y-8";
-                    
-                    // 이름 헤더
-                    const header = document.createElement('div');
-                    header.className = "flex items-center space-x-3 pb-2 border-b border-slate-200";
-                    header.innerHTML = `
-                        <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">${name[0]}</div>
-                        <h2 class="text-2xl font-bold text-slate-800">${name} 님</h2>
-                    `;
-                    empDiv.appendChild(header);
-
-                    // 월별 루프
-                    const months = Object.keys(allCsvData[name]).sort().reverse(); // 최신달부터
-                    months.forEach(monthKey => {
-                        const rows = allCsvData[name][monthKey];
-                        rows.sort((a, b) => (a.근무일자 || '') > (b.근무일자 || '') ? 1 : -1);
-
-                        const sectionId = `${name}_${monthKey}`.replace(/\s+/g, '-');
-                        
-                        const section = document.createElement('div');
-                        section.className = "bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm";
-                        section.innerHTML = `
-                            <div class="bg-slate-50 p-5 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                <div>
-                                    <h3 class="text-lg font-bold text-slate-700 flex items-center">
-                                        📅 ${monthKey} 월 
-                                        <span class="ml-2 text-xs font-normal text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">데이터 ${rows.length}건</span>
-                                    </h3>
-                                </div>
-                                <div class="flex items-center gap-4 text-sm">
-                                    <div class="text-right">
-                                        <p class="text-slate-500 text-xs">잔여 근무일</p>
-                                        <div class="flex items-center gap-1">
-                                            <button onclick="adjDays('${sectionId}', -1)" class="text-slate-400 hover:text-indigo-600 font-bold px-1">-</button>
-                                            <span id="rem-${sectionId}" class="font-bold text-indigo-600 text-lg">0</span>
-                                            <button onclick="adjDays('${sectionId}', 1)" class="text-slate-400 hover:text-indigo-600 font-bold px-1">+</button>
-                                        </div>
-                                    </div>
-                                    <div class="h-8 w-px bg-slate-300"></div>
-                                    <div class="text-right">
-                                        <p class="text-slate-500 text-xs">총 근무시간 (40h기준)</p>
-                                        <p id="total-${sectionId}" class="font-bold text-slate-800 text-lg">-</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="comp-box-${sectionId}" class="hidden bg-green-50 border-b border-green-100 p-4">
-                                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="p-2 bg-green-100 rounded-full text-green-600">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path></svg>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-bold text-green-800">🎁 이번 달 보상 휴가 (1.5배)</p>
-                                            <p class="text-xs text-green-600">초과 <span id="over-${sectionId}">0분</span> × 1.5 = <span id="reward-${sectionId}" class="font-bold">0분</span></p>
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <div class="bg-white px-3 py-1.5 rounded border border-green-200 text-center shadow-sm">
-                                            <span class="block text-[10px] text-slate-400">연차(8h)</span>
-                                            <span id="c8-${sectionId}" class="font-bold text-green-600 text-sm">-</span>
-                                        </div>
-                                        <div class="bg-white px-3 py-1.5 rounded border border-green-200 text-center shadow-sm">
-                                            <span class="block text-[10px] text-slate-400">반차(4h)</span>
-                                            <span id="c4-${sectionId}" class="font-bold text-green-600 text-sm">-</span>
-                                        </div>
-                                        <div class="bg-white px-3 py-1.5 rounded border border-green-200 text-center shadow-sm">
-                                            <span class="block text-[10px] text-slate-400">반반차(2h)</span>
-                                            <span id="c2-${sectionId}" class="font-bold text-green-600 text-sm">-</span>
-                                        </div>
-                                        <div class="bg-white px-3 py-1.5 rounded border border-green-200 text-center shadow-sm">
-                                            <span class="block text-[10px] text-slate-400">단축</span>
-                                            <span id="cr-${sectionId}" class="font-bold text-green-600 text-sm">-</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left text-sm text-slate-600">
-                                    <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500">
-                                        <tr>
-                                            <th class="p-3 w-24">날짜</th>
-                                            <th class="p-3 w-28">출근</th>
-                                            <th class="p-3 w-28">퇴근</th>
-                                            <th class="p-3 w-16 text-center">외출</th>
-                                            <th class="p-3 w-32">근무유형</th>
-                                            <th class="p-3">근무강도 (시각화)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tbody-${sectionId}" class="divide-y divide-slate-100">
-                                        ${rows.map((row, idx) => generateRowHtml(row, idx)).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <div id="pred-${sectionId}" class="bg-indigo-50 p-3 text-center text-indigo-700 text-sm font-medium border-t border-indigo-100 hidden">
-                                🚀 목표 달성 예측: 오늘 <span id="pred-time-${sectionId}" class="font-bold text-lg">00:00</span> 퇴근 시 목표 달성!
-                            </div>
-                        `;
-                        empDiv.appendChild(section);
-                    });
-
-                    resultsContainer.appendChild(empDiv);
-                });
-
-                // 이벤트 리스너 연결
-                document.querySelectorAll('.time-input, .leave-hours-input, .leave-selector').forEach(el => {
-                    el.addEventListener('change', calculateAllTotals);
-                });
-            }
-
-            function generateRowHtml(row, idx) {
-                return `
-                    <tr class="hover:bg-slate-50 transition-colors data-row" data-idx="${idx}">
-                        <td class="p-3 font-medium text-slate-700">${row.근무일자}</td>
-                        <td class="p-3"><input type="text" class="time-input clock-in" value="${row.출근시간 || ''}" placeholder="00:00:00"></td>
-                        <td class="p-3"><input type="text" class="time-input clock-out" value="${row.퇴근시간 || ''}" placeholder="00:00:00"></td>
-                        <td class="p-3 text-center"><input type="text" class="leave-hours-input leave-hours" value="${row.외출시간 || ''}" placeholder="-"></td>
-                        <td class="p-3">
-                            <select class="leave-selector w-full border-slate-200 rounded text-xs py-1.5">
-                                <option value="normal">정상 근무</option>
-                                <option value="annual">연차 (8h)</option>
-                                <option value="half">반차 (4h)</option>
-                                <option value="quarter">반반차 (2h)</option>
-                            </select>
-                        </td>
-                        <td class="p-3 align-middle">
-                            <div class="flex items-center gap-2">
-                                <div class="vis-bar-container w-32 h-2 bg-slate-200 rounded-full overflow-hidden relative">
-                                    <div class="vis-bar-fill absolute top-0 left-0 h-full bg-indigo-400 transition-all duration-500" style="width: 0%"></div>
-                                    <div class="vis-bar-over absolute top-0 left-0 h-full bg-red-400 opacity-80 transition-all duration-500" style="width: 0%; left: 0%;"></div>
-                                </div>
-                                <span class="vis-text text-xs text-slate-400 w-10 text-right">-</span>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
-
-            // --- 핵심 계산 로직 ---
-            function calculateAllTotals() {
-                const names = Object.keys(allCsvData);
-                
-                names.forEach(name => {
-                    const months = Object.keys(allCsvData[name]);
-                    months.forEach(monthKey => {
-                        const sectionId = `${name}_${monthKey}`.replace(/\s+/g, '-');
-                        const tbody = document.getElementById(`tbody-${sectionId}`);
-                        if (!tbody) return;
-
-                        const rows = tbody.querySelectorAll('tr.data-row');
-                        let totalH40 = 0; // 점심 제외 (보상휴가 기준)
-                        let totalH45 = 0; // 점심 포함
-                        let workedDates = new Set();
-                        let lastClockIn = null;
-                        let hasOutTime = false;
-                        let workingToday = false;
-
-                        rows.forEach(tr => {
-                            const dateStr = tr.children[0].textContent.trim();
-                            const inVal = tr.querySelector('.clock-in').value.trim();
-                            const outVal = tr.querySelector('.clock-out').value.trim();
-                            const leaveH = timeToHours(tr.querySelector('.leave-hours').value);
-                            const type = tr.querySelector('.leave-selector').value;
-
-                            // 유효한 날짜면 기록
-                            if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) workedDates.add(dateStr);
-
-                            const inDate = parseSmartTime(inVal, dateStr);
-                            let outDate = parseSmartTime(outVal, dateStr);
-
-                            // 마지막 행 추적 (퇴근예측용)
-                            if (inDate) {
-                                lastClockIn = inDate;
-                                hasOutTime = !!outDate;
-                            }
-
-                            let dayH40 = 0, dayH45 = 0;
-                            if (inDate) {
-                                if (outDate) {
-                                    if (outDate < inDate) outDate.setDate(outDate.getDate() + 1);
-                                    const res = calcDuration(inDate, outDate);
-                                    dayH40 = res.h40; dayH45 = res.h45;
-                                } else {
-                                    const res = calcLiveDuration(inDate);
-                                    dayH40 = res.h40; dayH45 = res.h45;
-                                    workingToday = true;
-                                }
-                            }
-
-                            // 외출/휴가 적용
-                            dayH40 = Math.max(0, dayH40 - leaveH);
-                            dayH45 = Math.max(0, dayH45 - leaveH);
-
-                            if (type === 'annual') { dayH40 += 8; dayH45 += 9; }
-                            else if (type === 'half') { dayH40 += 4; dayH45 += 5; }
-                            else if (type === 'quarter') { dayH40 += 2; dayH45 += 3; }
-
-                            totalH40 += dayH40;
-                            totalH45 += dayH45;
-
-                            // 시각화 업데이트 (Row 단위)
-                            updateRowVis(tr, dayH40);
-                        });
-
-                        // 남은 근무일 계산
-                        const autoDays = calcRemainingDays(workedDates, monthKey);
-                        const adj = remainingDaysAdjustments[sectionId] || 0;
-                        const remDays = Math.max(0, autoDays + adj);
-
-                        // UI 업데이트 (요약)
-                        document.getElementById(`rem-${sectionId}`).innerText = remDays;
-                        document.getElementById(`total-${sectionId}`).innerText = fmtH(totalH40);
-
-                        // 목표 시간 계산 (월간 기준, 단순화: 평일 * 8시간)
-                        // 단, 여기서는 "현재까지의 과부족"을 계산해야 하므로,
-                        // (지금까지 근무한 일수 + 남은 일수) * 8 로 '월 목표'를 잡거나,
-                        // 주간 단위 40시간 초과 로직을 월간 합산으로 적용해야 함.
-                        
-                        // 사용자의 요청: "초과된 시간의 1.5배 보상".
-                        // 기준: 월 목표 시간 = (실제 근무일수 + 남은 평일) * 8시간.
-                        // 이 기준을 넘는 시간을 '초과'로 간주.
-                        const targetHours = (workedDates.size + remDays) * 8;
-                        const overtime = totalH40 - targetHours;
-
-                        // 보상 휴가 UI
-                        const compBox = document.getElementById(`comp-box-${sectionId}`);
-                        if (overtime > 0.01) {
-                            compBox.classList.remove('hidden');
-                            
-                            const ovMin = Math.floor(overtime * 60);
-                            const rwMin = Math.floor(ovMin * 1.5);
-                            
-                            document.getElementById(`over-${sectionId}`).innerText = `${ovMin}분`;
-                            document.getElementById(`reward-${sectionId}`).innerText = `${rwMin}분`;
-
-                            let temp = rwMin;
-                            const c8 = Math.floor(temp/480); temp%=480;
-                            const c4 = Math.floor(temp/240); temp%=240;
-                            const c2 = Math.floor(temp/120); temp%=120;
-                            const cr = temp;
-
-                            document.getElementById(`c8-${sectionId}`).innerText = c8>0?c8:'-';
-                            document.getElementById(`c4-${sectionId}`).innerText = c4>0?c4:'-';
-                            document.getElementById(`c2-${sectionId}`).innerText = c2>0?c2:'-';
-                            
-                            if (cr > 0) {
-                                const h = Math.floor(cr/60); const m = cr%60;
-                                document.getElementById(`cr-${sectionId}`).innerText = `${h}h ${m}m`;
-                            } else {
-                                document.getElementById(`cr-${sectionId}`).innerText = '-';
-                            }
-                        } else {
-                            compBox.classList.add('hidden');
-                        }
-
-                        // 퇴근 예측
-                        const predBox = document.getElementById(`pred-${sectionId}`);
-                        if (workingToday && lastClockIn && !hasOutTime) {
-                            // 오늘 채워야 할 시간 = 목표 - (현재누적 - 오늘실시간) - (남은날*8)
-                            // 간편식: 현재누적(totalH40)이 목표(targetHours)가 될 때까지 남은 시간
-                            const needed = targetHours - totalH40; 
-                            // needed가 음수면 이미 달성. 양수면 더 해야함.
-                            
-                            if (needed > 0) {
-                                // 40시간 기준(점심제외) 예측
-                                const exitTime = calcExitTimeWithLunch(new Date(), needed, lastClockIn);
-                                const hh = String(exitTime.getHours()).padStart(2,'0');
-                                const mm = String(exitTime.getMinutes()).padStart(2,'0');
-                                document.getElementById(`pred-time-${sectionId}`).innerText = `${hh}:${mm}`;
-                                predBox.classList.remove('hidden');
-                            } else {
-                                predBox.classList.add('hidden');
-                            }
-                        } else {
-                            predBox.classList.add('hidden');
-                        }
-                    });
-                });
-
-                if (!liveUpdateInterval) liveUpdateInterval = setInterval(calculateAllTotals, 10000);
-            }
-
-            // --- Row 시각화 ---
-            function updateRowVis(tr, h40) {
-                const fill = tr.querySelector('.vis-bar-fill');
-                const over = tr.querySelector('.vis-bar-over');
-                const text = tr.querySelector('.vis-text');
-                
-                // 8시간 기준 100% (바 너비는 100px = 12시간 정도 표현하도록 설정)
-                // 12시간(Max) = 100% width
-                const maxH = 12; 
-                const pct = Math.min(100, (h40 / maxH) * 100);
-                
-                // 8시간까지는 fill, 그 이상은 over로 표현
-                const standardH = 8;
-                const stdPct = Math.min(100, (Math.min(h40, standardH) / maxH) * 100);
-                
-                fill.style.width = `${stdPct}%`;
-                
-                if (h40 > standardH) {
-                    const overH = h40 - standardH;
-                    const overPct = (overH / maxH) * 100;
-                    over.style.width = `${overPct}%`;
-                    over.style.left = `${stdPct}%`; // 파란바 끝에서 시작
-                } else {
-                    over.style.width = '0%';
+                    rawData = parseCSV(e.target.result);
+                    if (!rawData.length) throw new Error("데이터가 없습니다.");
+                    await prepareHolidaysForData(rawData);
+                    processData(rawData);
+                    renderCurrentTab();
+                    spinner.classList.add('hidden');
+                } catch (err) {
+                    spinner.classList.add('hidden');
+                    alert("오류: " + err.message);
+                    placeholder.style.display = 'block';
                 }
-                
-                text.innerText = h40 > 0 ? fmtH_short(h40) : '-';
-            }
-
-            // --- 유틸리티 ---
-            function calcRemainingDays(workedDates, monthKey) {
-                // 해당 월의 마지막 날짜까지만 계산 or 오늘이 포함된 달이면 오늘 이후부터 금요일까지
-                // monthKey: "2025-11"
-                // 로직: 해당 월의 평일 수 - 근무한 날 수 - 휴일 수
-                // 간단하게: "마지막 근무일" 다음날부터 "그 달의 말일"까지의 평일(휴일제외) 카운트
-                
-                if (workedDates.size === 0) return 0;
-                const sorted = Array.from(workedDates).sort();
-                const lastStr = sorted[sorted.length-1];
-                let next = new Date(lastStr);
-                next.setDate(next.getDate() + 1);
-
-                const [yStr, mStr] = monthKey.split('-');
-                const year = parseInt(yStr);
-                const month = parseInt(mStr) - 1; // 0-based
-
-                let count = 0;
-                // 다음 날짜가 같은 달인 동안 반복
-                while (next.getMonth() === month && next.getFullYear() === year) {
-                    if (next.getDay() >= 1 && next.getDay() <= 5) {
-                        const s = dateToYMD(next);
-                        if (!HOLIDAYS.has(s)) count++;
-                    }
-                    next.setDate(next.getDate() + 1);
-                }
-                return count;
-            }
-
-            function calcExitTimeWithLunch(now, hoursNeeded, clockIn) {
-                let simul = new Date(now.getTime());
-                let remainMs = hoursNeeded * 3600000;
-                const lStart = new Date(clockIn); lStart.setHours(11,30,0,0);
-                
-                if (simul < lStart) {
-                    if (remainMs > (lStart - simul)) return new Date(simul.getTime() + remainMs + 3600000); 
-                    else return new Date(simul.getTime() + remainMs);
-                } 
-                // 점심 이후면 그냥 더함 (점심 중이면 호출 시점 고려 필요하나 단순화)
-                return new Date(simul.getTime() + remainMs);
-            }
-
-            function calcDuration(i, o) {
-                let ms = o - i; if(ms<0) return {h40:0, h45:0};
-                const h45 = ms/3600000;
-                const ls = new Date(i); ls.setHours(11,30,0,0);
-                const le = new Date(i); le.setHours(12,30,0,0);
-                const os = new Date(Math.max(i, ls)), oe = new Date(Math.min(o, le));
-                const ded = (oe>os) ? (oe-os) : 0;
-                return { h40: (ms-ded)/3600000, h45 };
-            }
-            function calcLiveDuration(i) { return calcDuration(i, new Date()); }
-            
-            function parseSmartTime(t, dStr) {
-                if(!t||t==='-'||t==='') return null;
-                const d = new Date(t); if(!isNaN(d)) return d;
-                const m = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-                if(m) {
-                    const dt = dStr?new Date(dStr):new Date();
-                    dt.setHours(parseInt(m[1]), parseInt(m[2]), m[3]?parseInt(m[3]):0, 0);
-                    return dt;
-                }
-                return null;
-            }
-            function timeToHours(s) {
-                if(!s||s==='-') return 0;
-                const p=s.split(':'); if(p.length<2) return 0;
-                return parseInt(p[0]) + parseInt(p[1])/60;
-            }
-            function dateToYMD(d) {
-                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            }
-            function fmtH(n) {
-                if(isNaN(n)) return "0h 0m";
-                const h=Math.floor(n), m=Math.round((n-h)*60);
-                return `${h}시간 ${m}분`;
-            }
-            function fmtH_short(n) {
-                const h=Math.floor(n), m=Math.round((n-h)*60);
-                return `${h}h${m>0?` ${m}m`:''}`;
-            }
-            function parseCSV(txt) {
-                const l = txt.split(/\r?\n/).filter(x=>x.trim());
-                if(l.length<2) return [];
-                const h = l[0].split(',').map(x=>x.trim());
-                return l.slice(1).map(x => {
-                    const v = x.split(','); const o={};
-                    h.forEach((k,i)=>o[k]=(v[i]||'').trim());
-                    return o;
-                });
-            }
-
-            window.adjDays = (id, v) => {
-                remainingDaysAdjustments[id] = (remainingDaysAdjustments[id]||0) + v;
-                calculateAllTotals();
             };
-        });
+            reader.readAsText(file, "UTF-8"); 
+        }
+
+        async function prepareHolidaysForData(data) {
+            const monthsToFetch = new Set();
+            const now = new Date();
+            monthsToFetch.add(`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`);
+            data.forEach(row => {
+                if (row.근무일자) {
+                    const parts = row.근무일자.split('-'); 
+                    if (parts.length >= 2) monthsToFetch.add(`${parts[0]}${parts[1]}`);
+                }
+            });
+            const promises = [];
+            for (const ym of monthsToFetch) {
+                if (!FETCHED_MONTHS.has(ym)) {
+                    promises.push(fetchHolidaysFromApi(ym.substring(0,4), ym.substring(4,6)));
+                    FETCHED_MONTHS.add(ym);
+                }
+            }
+            if (promises.length) await Promise.all(promises);
+        }
+
+        async function fetchHolidaysFromApi(year, month) {
+            const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?solYear=${year}&solMonth=${month}&ServiceKey=${API_KEY}&_type=json&numOfRows=50`;
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+                const items = json.response?.body?.items?.item;
+                if (items) {
+                    (Array.isArray(items) ? items : [items]).forEach(item => {
+                        if (item.isHoliday === 'Y') {
+                            const s = String(item.locdate);
+                            HOLIDAYS.add(`${s.substring(0,4)}-${s.substring(4,6)}-${s.substring(6,8)}`);
+                        }
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function processData(data) {
+            groupedData = { weekly: {}, monthly: {} };
+            data.forEach(row => {
+                const name = row.이름;
+                const dateStr = row.근무일자;
+                if (!name || !dateStr) return;
+
+                const monthKey = dateStr.substring(0, 7);
+                if (!groupedData.monthly[name]) groupedData.monthly[name] = {};
+                if (!groupedData.monthly[name][monthKey]) groupedData.monthly[name][monthKey] = [];
+                groupedData.monthly[name][monthKey].push(row);
+
+                const dateObj = new Date(dateStr);
+                const monday = getMonday(dateObj);
+                const weekKey = dateToYMD(monday); 
+                
+                if (!groupedData.weekly[name]) groupedData.weekly[name] = {};
+                if (!groupedData.weekly[name][weekKey]) groupedData.weekly[name][weekKey] = [];
+                groupedData.weekly[name][weekKey].push(row);
+            });
+            calculateAllTotals();
+        }
+
+        function getMonday(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+            return new Date(d.setDate(diff));
+        }
+        function getSunday(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? 0 : 7); 
+            return new Date(d.setDate(diff));
+        }
+
+        function renderCurrentTab() {
+            resultsContainer.innerHTML = '';
+            const dataMap = groupedData[currentTab];
+            const sortedNames = Object.keys(dataMap).sort();
+
+            sortedNames.forEach(name => {
+                const empDiv = document.createElement('div');
+                empDiv.className = "space-y-6";
+                
+                const header = document.createElement('div');
+                header.className = "flex items-center space-x-3 pb-2 border-b border-slate-200 mt-4";
+                header.innerHTML = `
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">${name[0]}</div>
+                    <h2 class="text-2xl font-bold text-slate-800">${name} 님</h2>
+                `;
+                empDiv.appendChild(header);
+
+                const keys = Object.keys(dataMap[name]).sort().reverse();
+                keys.forEach(key => {
+                    const rows = dataMap[name][key];
+                    rows.sort((a, b) => (a.근무일자 || '') > (b.근무일자 || '') ? 1 : -1);
+                    const sectionId = `${name}_${key}`.replace(/[\s:]+/g, '-'); 
+                    
+                    let titleHtml = "";
+                    if (currentTab === 'monthly') {
+                        titleHtml = `📅 ${key} 월`;
+                    } else {
+                        const sDate = new Date(key);
+                        const eDate = getSunday(sDate);
+                        const sStr = `${sDate.getMonth()+1}.${sDate.getDate()}`;
+                        const eStr = `${eDate.getMonth()+1}.${eDate.getDate()}`;
+                        titleHtml = `🗓️ ${sStr} ~ ${eStr} 주간`;
+                    }
+
+                    const section = document.createElement('div');
+                    section.className = "bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm";
+                    
+                    section.innerHTML = `
+                        <div class="bg-white p-5 border-b border-slate-100 flex flex-col gap-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-bold text-slate-700 flex items-center">
+                                    ${titleHtml}
+                                    <span class="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">데이터 ${rows.length}건</span>
+                                </h3>
+                                <div class="text-right">
+                                    <p class="text-slate-400 text-xs mb-1">총 근무시간</p>
+                                    <p id="total-${sectionId}" class="font-bold text-2xl text-slate-800 tracking-tight">-</p>
+                                </div>
+                            </div>
+                            
+                            <div id="warning-52h-${sectionId}" class="hidden rounded-lg p-3 bg-red-50 border border-red-100 flex items-center gap-3">
+                                <div class="text-2xl">🚨</div>
+                                <div>
+                                    <p class="text-sm font-bold text-red-700">주 52시간 초과 주의!</p>
+                                    <p class="text-xs text-red-600">현재 추세라면 법정 근로시간을 초과할 수 있습니다.</p>
+                                </div>
+                            </div>
+
+                            <div id="smart-calc-${sectionId}" class="hidden bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xl">⚖️</span>
+                                        <div>
+                                            <p class="text-sm font-bold text-indigo-800">1/N 스마트 분배</p>
+                                            <p class="text-xs text-indigo-600">남은 <span id="rem-days-disp-${sectionId}" class="font-bold">0</span>일 동안 하루 <span id="daily-target-${sectionId}" class="font-bold text-lg bg-white px-1 rounded text-indigo-700">0h 0m</span>씩 근무하면 40h 달성!</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-xs text-right">
+                                        <p class="text-slate-400">잔여 평일 수동조절</p>
+                                        <div class="flex items-center justify-end gap-1 mt-1">
+                                            <button onclick="adjDays('${sectionId}', -1)" class="w-6 h-6 bg-white rounded border border-indigo-200 text-indigo-600 font-bold hover:bg-indigo-50">-</button>
+                                            <span id="rem-${sectionId}" class="w-4 text-center font-bold text-indigo-600">0</span>
+                                            <button onclick="adjDays('${sectionId}', 1)" class="w-6 h-6 bg-white rounded border border-indigo-200 text-indigo-600 font-bold hover:bg-indigo-50">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="comp-box-${sectionId}" class="hidden bg-green-50 border-b border-green-100 p-4">
+                            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-green-100 rounded-full text-green-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path></svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-bold text-green-800">🎁 보상 휴가 (1.5배)</p>
+                                        <p class="text-xs text-green-600">초과 <span id="over-${sectionId}">0분</span> × 1.5 = <span id="reward-${sectionId}" class="font-bold">0분</span></p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 text-xs">
+                                    <div class="bg-white px-2 py-1 rounded border border-green-200 text-center shadow-sm">
+                                        <span class="block text-[10px] text-slate-400">8h</span>
+                                        <span id="c8-${sectionId}" class="font-bold text-green-600">-</span>
+                                    </div>
+                                    <div class="bg-white px-2 py-1 rounded border border-green-200 text-center shadow-sm">
+                                        <span class="block text-[10px] text-slate-400">4h</span>
+                                        <span id="c4-${sectionId}" class="font-bold text-green-600">-</span>
+                                    </div>
+                                    <div class="bg-white px-2 py-1 rounded border border-green-200 text-center shadow-sm">
+                                        <span class="block text-[10px] text-slate-400">2h</span>
+                                        <span id="c2-${sectionId}" class="font-bold text-green-600">-</span>
+                                    </div>
+                                    <div class="bg-white px-2 py-1 rounded border border-green-200 text-center shadow-sm min-w-[50px]">
+                                        <span class="block text-[10px] text-slate-400">나머지</span>
+                                        <span id="cr-${sectionId}" class="font-bold text-green-600">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-slate-600">
+                                <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-3 w-28">날짜</th>
+                                        <th class="p-3 w-24">출근</th>
+                                        <th class="p-3 w-24">퇴근</th>
+                                        <th class="p-3 w-16 text-center">외출</th>
+                                        <th class="p-3 w-28">유형</th>
+                                        <th class="p-3">근무강도</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-${sectionId}" class="divide-y divide-slate-100">
+                                    ${rows.map((row, idx) => generateRowHtml(row, idx)).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    empDiv.appendChild(section);
+                });
+                resultsContainer.appendChild(empDiv);
+            });
+
+            // 이벤트 리스너 재부착
+            document.querySelectorAll('.time-input, .leave-hours-input, .leave-selector').forEach(el => {
+                el.addEventListener('change', calculateAllTotals);
+            });
+            calculateAllTotals();
+            if (!liveUpdateInterval) liveUpdateInterval = setInterval(calculateAllTotals, 10000);
+        }
+
+        function generateRowHtml(row, idx) {
+            const date = new Date(row.근무일자);
+            const dayNames = ['일','월','화','수','목','금','토'];
+            const dayName = dayNames[date.getDay()];
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const dateClass = isWeekend ? "text-red-500" : "text-slate-700";
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors data-row" data-idx="${idx}">
+                    <td class="p-3">
+                        <div class="font-medium ${dateClass} date-cell">${row.근무일자}(${dayName})</div>
+                        <div class="text-[10px] text-red-500 hidden core-msg">⚠️ 코어타임 부재</div>
+                    </td>
+                    <td class="p-3"><input type="text" class="time-input clock-in" value="${row.출근시간 || ''}" placeholder="00:00"></td>
+                    <td class="p-3"><input type="text" class="time-input clock-out" value="${row.퇴근시간 || ''}" placeholder="00:00"></td>
+                    <td class="p-3 text-center"><input type="text" class="leave-hours-input leave-hours" value="${row.외출시간 || ''}" placeholder="-"></td>
+                    <td class="p-3">
+                        <select class="leave-selector w-full border-slate-200 rounded text-xs py-1.5">
+                            <option value="normal">정상</option>
+                            <option value="annual">연차(8h)</option>
+                            <option value="half">반차(4h)</option>
+                            <option value="quarter">반반차(2h)</option>
+                        </select>
+                    </td>
+                    <td class="p-3 align-middle">
+                        <div class="flex items-center gap-2">
+                            <div class="vis-bar-container w-full max-w-[100px] h-1.5 bg-slate-200 rounded-full overflow-hidden relative">
+                                <div class="vis-bar-fill absolute top-0 left-0 h-full bg-indigo-400" style="width: 0%"></div>
+                                <div class="vis-bar-over absolute top-0 left-0 h-full bg-red-400 opacity-80" style="width: 0%; left: 0%;"></div>
+                            </div>
+                            <span class="vis-text text-[10px] text-slate-400 w-8 text-right">-</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function calculateAllTotals() {
+            const dataMap = groupedData[currentTab];
+            const names = Object.keys(dataMap);
+            
+            // 코어타임 설정값 가져오기
+            const coreStartStr = document.getElementById('core-start').value; // "13:00"
+            const coreEndStr = document.getElementById('core-end').value;     // "16:00"
+
+            names.forEach(name => {
+                const keys = Object.keys(dataMap[name]);
+                keys.forEach(key => {
+                    const sectionId = `${name}_${key}`.replace(/[\s:]+/g, '-');
+                    const tbody = document.getElementById(`tbody-${sectionId}`);
+                    if (!tbody) return;
+
+                    const rows = tbody.querySelectorAll('tr.data-row');
+                    let totalH40 = 0;
+                    let workedDates = new Set();
+                    let lastClockIn = null;
+                    let hasOutTime = false;
+
+                    rows.forEach(tr => {
+                        const dateCell = tr.querySelector('.date-cell');
+                        const coreMsg = tr.querySelector('.core-msg');
+                        const dateStr = dateCell.innerText.split('(')[0];
+                        const inVal = tr.querySelector('.clock-in').value.trim();
+                        const outVal = tr.querySelector('.clock-out').value.trim();
+                        const leaveH = timeToHours(tr.querySelector('.leave-hours').value);
+                        const type = tr.querySelector('.leave-selector').value;
+
+                        if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) workedDates.add(dateStr);
+
+                        const inDate = parseSmartTime(inVal, dateStr);
+                        let outDate = parseSmartTime(outVal, dateStr);
+
+                        // 코어타임 체크 (휴가가 아닐 때만)
+                        let isCoreViolated = false;
+                        if (type === 'normal' && inDate) { // 출근은 했을 때
+                             // 코어타임 날짜 객체 생성
+                             const cS = parseSmartTime(coreStartStr, dateStr);
+                             const cE = parseSmartTime(coreEndStr, dateStr);
+                             
+                             // 퇴근시간 없으면(근무중) 현재시간으로 가정하여 체크 가능하지만 보수적으로 퇴근 찍힌 날만 체크하거나,
+                             // 출근시간이 코어타임 시작보다 늦으면 바로 위반
+                             if (inDate > cS) isCoreViolated = true; // 지각으로 코어침범
+                             
+                             if (outDate) {
+                                if (outDate < cE) isCoreViolated = true; // 조퇴로 코어침범
+                             }
+                        }
+                        
+                        // UI 표시
+                        if (isCoreViolated) {
+                            dateCell.classList.add('core-violation');
+                            coreMsg.classList.remove('hidden');
+                        } else {
+                            dateCell.classList.remove('core-violation');
+                            coreMsg.classList.add('hidden');
+                        }
+
+
+                        if (inDate) { lastClockIn = inDate; hasOutTime = !!outDate; }
+
+                        let dayH40 = 0;
+                        if (inDate) {
+                            if (outDate) {
+                                if (outDate < inDate) outDate.setDate(outDate.getDate() + 1);
+                                const res = calcDuration(inDate, outDate);
+                                dayH40 = res.h40;
+                            } else {
+                                const res = calcLiveDuration(inDate);
+                                dayH40 = res.h40;
+                            }
+                        }
+
+                        dayH40 = Math.max(0, dayH40 - leaveH);
+                        if (type === 'annual') dayH40 += 8;
+                        else if (type === 'half') dayH40 += 4;
+                        else if (type === 'quarter') dayH40 += 2;
+
+                        totalH40 += dayH40;
+                        updateRowVis(tr, dayH40);
+                    });
+
+                    // 1. 잔여 평일 계산 및 1/N 계산
+                    const autoDays = calcRemainingDays(workedDates, key, currentTab);
+                    const adj = remainingDaysAdjustments[sectionId] || 0;
+                    const remDays = Math.max(0, autoDays + adj);
+                    
+                    document.getElementById(`rem-${sectionId}`).innerText = remDays;
+                    document.getElementById(`total-${sectionId}`).innerText = fmtH(totalH40);
+
+                    // 52시간 경고 (색상 변경)
+                    const totalEl = document.getElementById(`total-${sectionId}`);
+                    const warnBox = document.getElementById(`warning-52h-${sectionId}`);
+                    totalEl.className = "font-bold text-2xl tracking-tight transition-colors";
+                    warnBox.classList.add('hidden');
+
+                    if (totalH40 >= 50) {
+                        totalEl.classList.add('text-red-600');
+                        warnBox.classList.remove('hidden');
+                    } else if (totalH40 >= 45) {
+                        totalEl.classList.add('text-orange-500');
+                    } else {
+                        totalEl.classList.add('text-slate-800');
+                    }
+
+                    // 1/N 스마트 계산 (주간 모드일 때만, 남은 날이 있을 때만)
+                    const smartBox = document.getElementById(`smart-calc-${sectionId}`);
+                    const dailyTargetEl = document.getElementById(`daily-target-${sectionId}`);
+                    const remDaysDisp = document.getElementById(`rem-days-disp-${sectionId}`);
+                    
+                    if (currentTab === 'weekly' && remDays > 0) {
+                        smartBox.classList.remove('hidden');
+                        remDaysDisp.innerText = remDays;
+                        
+                        const needed = Math.max(0, 40 - totalH40);
+                        if (needed === 0) {
+                            dailyTargetEl.innerText = "목표 달성 완료! 🎉";
+                            dailyTargetEl.className = "font-bold text-sm bg-green-100 text-green-700 px-2 py-1 rounded";
+                        } else {
+                            const perDay = needed / remDays;
+                            const h = Math.floor(perDay);
+                            const m = Math.ceil((perDay - h) * 60);
+                            dailyTargetEl.innerText = `${h}시간 ${m}분`;
+                        }
+                    } else {
+                        smartBox.classList.add('hidden');
+                    }
+
+                    // 목표 시간 및 초과 계산
+                    const targetHours = (workedDates.size + remDays) * 8;
+                    const overtime = totalH40 - targetHours;
+
+                    const compBox = document.getElementById(`comp-box-${sectionId}`);
+                    if (overtime > 0.01) {
+                        compBox.classList.remove('hidden');
+                        const ovMin = Math.floor(overtime * 60);
+                        const rwMin = Math.floor(ovMin * 1.5);
+                        document.getElementById(`over-${sectionId}`).innerText = `${ovMin}분`;
+                        document.getElementById(`reward-${sectionId}`).innerText = `${rwMin}분`;
+
+                        let temp = rwMin;
+                        const c8 = Math.floor(temp/480); temp%=480;
+                        const c4 = Math.floor(temp/240); temp%=240;
+                        const c2 = Math.floor(temp/120); temp%=120;
+                        const cr = temp;
+                        document.getElementById(`c8-${sectionId}`).innerText = c8>0?c8:'-';
+                        document.getElementById(`c4-${sectionId}`).innerText = c4>0?c4:'-';
+                        document.getElementById(`c2-${sectionId}`).innerText = c2>0?c2:'-';
+                        if (cr > 0) {
+                            const h = Math.floor(cr/60); const m = cr%60;
+                            document.getElementById(`cr-${sectionId}`).innerText = `${h}h ${m}m`;
+                        } else {
+                            document.getElementById(`cr-${sectionId}`).innerText = '-';
+                        }
+                    } else {
+                        compBox.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+        function calcRemainingDays(workedDates, key, type) {
+            if (workedDates.size === 0) return 0;
+            const sorted = Array.from(workedDates).sort();
+            const lastWorkedStr = sorted[sorted.length-1];
+            let checkDate = new Date(lastWorkedStr);
+            checkDate.setDate(checkDate.getDate() + 1);
+
+            let endDate;
+            if (type === 'monthly') {
+                const [y, m] = key.split('-');
+                endDate = new Date(parseInt(y), parseInt(m), 0);
+            } else {
+                const start = new Date(key);
+                endDate = new Date(start);
+                endDate.setDate(endDate.getDate() + 6);
+            }
+
+            let count = 0;
+            while (checkDate <= endDate) {
+                const d = checkDate.getDay();
+                if (d >= 1 && d <= 5) {
+                    const s = dateToYMD(checkDate);
+                    if (!HOLIDAYS.has(s)) count++;
+                }
+                checkDate.setDate(checkDate.getDate() + 1);
+            }
+            return count;
+        }
+
+        function updateRowVis(tr, h40) {
+            const fill = tr.querySelector('.vis-bar-fill');
+            const over = tr.querySelector('.vis-bar-over');
+            const text = tr.querySelector('.vis-text');
+            const maxH = 12; 
+            const standardH = 8;
+            const stdPct = Math.min(100, (Math.min(h40, standardH) / maxH) * 100);
+            fill.style.width = `${stdPct}%`;
+            if (h40 > standardH) {
+                const overH = h40 - standardH;
+                const overPct = (overH / maxH) * 100;
+                over.style.width = `${overPct}%`;
+                over.style.left = `${stdPct}%`;
+            } else {
+                over.style.width = '0%';
+            }
+            text.innerText = h40 > 0 ? fmtH_short(h40) : '-';
+        }
+
+        function calcDuration(i, o) {
+            let ms = o - i; if(ms<0) return {h40:0};
+            const ls = new Date(i); ls.setHours(11,30,0,0);
+            const le = new Date(i); le.setHours(12,30,0,0);
+            const os = new Date(Math.max(i, ls)), oe = new Date(Math.min(o, le));
+            const ded = (oe>os) ? (oe-os) : 0;
+            return { h40: (ms-ded)/3600000 };
+        }
+        function calcLiveDuration(i) { return calcDuration(i, new Date()); }
+        
+        function parseSmartTime(t, dStr) {
+            if(!t||t==='-'||t==='') return null;
+            if(t.includes(':')) {
+                const [h, m] = t.split(':').map(Number);
+                const dt = dStr ? new Date(dStr) : new Date();
+                dt.setHours(h, m, 0, 0);
+                return dt;
+            }
+            return null;
+        }
+        function timeToHours(s) {
+            if(!s||s==='-') return 0;
+            const p=s.split(':'); if(p.length<2) return 0;
+            return parseInt(p[0]) + parseInt(p[1])/60;
+        }
+        function dateToYMD(d) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        function fmtH(n) {
+            if(isNaN(n)) return "0h 0m";
+            const h=Math.floor(n), m=Math.round((n-h)*60);
+            return `${h}시간 ${m}분`;
+        }
+        function fmtH_short(n) {
+            const h=Math.floor(n), m=Math.round((n-h)*60);
+            return `${h}h${m>0?` ${m}m`:''}`;
+        }
+        function parseCSV(txt) {
+            const l = txt.split(/\r?\n/).filter(x=>x.trim());
+            if(l.length<2) return [];
+            const h = l[0].split(',').map(x=>x.trim());
+            return l.slice(1).map(x => {
+                const v = x.split(','); const o={};
+                h.forEach((k,i)=>o[k]=(v[i]||'').trim());
+                return o;
+            });
+        }
+        window.adjDays = (id, v) => {
+            remainingDaysAdjustments[id] = (remainingDaysAdjustments[id]||0) + v;
+            calculateAllTotals();
+        };
     </script>
 </body>
 </html>
