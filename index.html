@@ -41,6 +41,55 @@
             background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
             background-size: 1rem 1rem;
         }
+
+        /* 오늘 행 하이라이트 */
+        .today-row {
+            background: linear-gradient(90deg, #eef2ff 0%, #ffffff 100%) !important;
+            border-left: 3px solid #6366f1;
+        }
+        .today-row:hover {
+            background: linear-gradient(90deg, #e0e7ff 0%, #f8fafc 100%) !important;
+        }
+        .today-badge {
+            background: #6366f1;
+            color: white;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 9999px;
+            margin-left: 6px;
+            font-weight: bold;
+        }
+
+        /* 미래 날짜 스타일 */
+        .future-row {
+            background-color: #f8fafc;
+        }
+        .future-row .time-input,
+        .future-row .leave-hours-input {
+            background-color: #f1f5f9;
+            border-style: dashed;
+        }
+
+        /* 주말 행 스타일 */
+        .weekend-row {
+            background-color: #fef2f2;
+        }
+        .weekend-row.today-row {
+            background: linear-gradient(90deg, #fee2e2 0%, #ffffff 100%) !important;
+            border-left: 3px solid #ef4444;
+        }
+
+        /* 주말 추가 버튼 */
+        .add-weekend-btn {
+            border: 2px dashed #d1d5db;
+            color: #9ca3af;
+            transition: all 0.2s;
+        }
+        .add-weekend-btn:hover {
+            border-color: #6366f1;
+            color: #6366f1;
+            background-color: #eef2ff;
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
@@ -52,7 +101,7 @@
                 <div class="flex items-center gap-2">
                     <div>
                         <h1 class="text-3xl font-bold text-indigo-700 mb-1">근무시간 정산 리포트 <span class="text-sm font-normal text-slate-500 bg-indigo-50 px-2 py-1 rounded-lg ml-2">Pro+</span></h1>
-                        <p class="text-xs text-slate-500">목표시간 설정 • 1.5배 보상휴가 계산 • 스마트 1/N</p>
+                        <p class="text-xs text-slate-500">목표시간 설정 • 1.5배 보상휴가 계산 • 스마트 1/N • 금요일 퇴근 예측</p>
                     </div>
                     <button onclick="toggleModal()" class="ml-2 text-slate-400 hover:text-indigo-600 transition-colors" title="기능 가이드">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -118,10 +167,12 @@
                     </div>
                 </div>
                 <div class="my-5 space-y-3 text-sm text-slate-700">
+                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">주간 전체 표시:</span> 월~금 모든 날짜가 표시되며, 주말 추가 가능</div></div>
+                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">금요일 퇴근 예측:</span> 이번 주 남은 시간과 금요일 퇴근 예상 시간 표시</div></div>
                     <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">목표 시간 설정:</span> 상단에서 주간 목표(기본 40h)를 직접 설정 가능</div></div>
-                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">보상휴가 시뮬레이션:</span> 40시간 초과분 × 1.5배 자동 계산 (반반차/반차/연차 환산)</div></div>
-                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">스마트 1/N:</span> 설정한 목표 시간을 달성하기 위한 남은 일수별 권장 근무시간 계산</div></div>
-                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">기본 기능:</span> 시간 자동 인식, 점심 공제, 코어타임 체크 등 유지</div></div>
+                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">보상휴가 시뮬레이션:</span> 40시간 초과분 × 1.5배 자동 계산</div></div>
+                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">스마트 1/N:</span> 남은 일수별 권장 근무시간 계산</div></div>
+                    <div class="flex gap-2"><span class="font-bold text-indigo-500">✓</span><div><span class="font-bold">기본 기능:</span> 시간 자동 인식, 점심 공제, 코어타임 체크</div></div>
                 </div>
                 <div class="flex justify-end pt-2">
                     <button class="px-4 py-2 bg-indigo-600 p-3 rounded-lg text-white hover:bg-indigo-500 text-sm font-bold" onclick="toggleModal()">확인</button>
@@ -189,10 +240,8 @@
                 return `${h}h${m > 0 ? ` ${m}m` : ''}`;
             },
             
-            // 소수점 연차를 텍스트로 변환 (예: 1.25 -> 1일 2시간(반반차))
             fmtLeave(days) {
                 if (days <= 0) return "0개";
-                // 단순히 개수로 표현하거나, 8시간 기준 환산 텍스트 제공
                 return `${days.toFixed(3)}개`; 
             },
 
@@ -217,6 +266,30 @@
                 return new Date(d.setDate(diff));
             },
 
+            getFriday(mondayDate) {
+                const d = new Date(mondayDate);
+                d.setDate(d.getDate() + 4);
+                return d;
+            },
+
+            formatDate(d) {
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            },
+
+            isToday(dateStr) {
+                const today = new Date();
+                const todayStr = this.formatDate(today);
+                return dateStr === todayStr;
+            },
+
+            isFuture(dateStr) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const target = new Date(dateStr);
+                target.setHours(0, 0, 0, 0);
+                return target > today;
+            },
+
             calcWorkingDays(startStr, endStr, holidays) {
                 let start = new Date(startStr);
                 const end = new Date(endStr);
@@ -228,6 +301,30 @@
                     start.setDate(start.getDate() + 1);
                 }
                 return count;
+            },
+
+            // 주간의 월~금 날짜 배열 생성
+            getWeekdayDates(mondayDateStr) {
+                const monday = new Date(mondayDateStr);
+                const dates = [];
+                for (let i = 0; i < 5; i++) {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    dates.push(this.formatDate(d));
+                }
+                return dates;
+            },
+
+            // 주말 날짜 배열 생성 (토, 일)
+            getWeekendDates(mondayDateStr) {
+                const monday = new Date(mondayDateStr);
+                const dates = [];
+                for (let i = 5; i <= 6; i++) {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    dates.push(this.formatDate(d));
+                }
+                return dates;
             }
         };
 
@@ -235,7 +332,7 @@
          * 2. UIManager: 화면 렌더링
          */
         const UIManager = {
-            renderEmpSection(name, key, rows, currentTab) {
+            renderEmpSection(name, key, rows, currentTab, showWeekends = {}) {
                 const sectionId = `${name}_${key}`.replace(/[\s:]+/g, '-');
                 
                 let titleHtml = "";
@@ -251,6 +348,45 @@
 
                 // 주간 모드일 때만 대시보드 표시
                 const showDashboard = currentTab === 'weekly' ? '' : 'hidden';
+
+                // 주간 모드일 때 월~금 전체 날짜 생성
+                let tableRows = '';
+                if (currentTab === 'weekly') {
+                    const weekdayDates = TimeUtils.getWeekdayDates(key);
+                    const weekendDates = TimeUtils.getWeekendDates(key);
+                    const rowMap = {};
+                    rows.forEach(row => {
+                        rowMap[row.근무일자] = row;
+                    });
+
+                    // 월~금 행 생성
+                    weekdayDates.forEach(dateStr => {
+                        const row = rowMap[dateStr] || { 근무일자: dateStr, 출근시간: '', 퇴근시간: '', 외출시간: '' };
+                        tableRows += this.generateRowHtml(row, false);
+                    });
+
+                    // 주말 행 (데이터가 있거나 showWeekends가 true인 경우)
+                    const weekendKey = `${name}_${key}`;
+                    weekendDates.forEach(dateStr => {
+                        const row = rowMap[dateStr];
+                        if (row || (showWeekends[weekendKey] && showWeekends[weekendKey].includes(dateStr))) {
+                            const weekendRow = row || { 근무일자: dateStr, 출근시간: '', 퇴근시간: '', 외출시간: '' };
+                            tableRows += this.generateRowHtml(weekendRow, true);
+                        }
+                    });
+                } else {
+                    rows.forEach(row => {
+                        tableRows += this.generateRowHtml(row, false);
+                    });
+                }
+
+                // 주말 추가 버튼 (주간 모드일 때만)
+                const weekendBtnHtml = currentTab === 'weekly' ? `
+                    <button onclick="App.toggleWeekend('${name}', '${key}')" class="add-weekend-btn w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 mt-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        주말(토/일) 추가
+                    </button>
+                ` : '';
 
                 return `
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm section-container" id="section-${sectionId}" data-key="${key}" data-name="${name}">
@@ -271,7 +407,7 @@
                                 <div><p class="text-sm font-bold text-red-700">주 52시간 초과 주의</p></div>
                             </div>
 
-                            <div id="dashboard-${sectionId}" class="${showDashboard} grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div id="dashboard-${sectionId}" class="${showDashboard} grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
                                     <div class="flex justify-between items-end mb-2">
                                         <p class="text-sm font-bold text-slate-700">⏳ 목표 달성 현황 (<span id="target-disp-${sectionId}">40</span>h)</p>
@@ -292,6 +428,28 @@
                                             하루 <span id="daily-target-${sectionId}" class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">0h</span> 권장
                                             <div id="exit-estimate-${sectionId}" class="text-[10px] text-slate-400 mt-0.5"></div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- 금요일 퇴근 예측 카드 -->
+                                <div class="bg-emerald-50 rounded-lg p-4 border border-emerald-100">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-lg">🏁</span>
+                                        <p class="text-sm font-bold text-emerald-800">금요일 퇴근 예측</p>
+                                    </div>
+                                    <div class="text-xs text-emerald-700 space-y-1">
+                                        <div class="flex justify-between">
+                                            <span>남은 시간:</span>
+                                            <span id="friday-remain-${sectionId}" class="font-bold">-</span>
+                                        </div>
+                                        <div class="w-full h-px bg-emerald-200 my-1"></div>
+                                        <div id="friday-estimate-${sectionId}" class="space-y-1">
+                                            <div class="flex justify-between items-center">
+                                                <span>09:00 출근 시:</span>
+                                                <span class="font-bold text-emerald-900">-</span>
+                                            </div>
+                                        </div>
+                                        <p id="friday-tip-${sectionId}" class="text-[10px] text-emerald-500 mt-2 pt-1 border-t border-emerald-200"></p>
                                     </div>
                                 </div>
 
@@ -329,27 +487,43 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100" id="tbody-${sectionId}">
-                                    ${rows.map(row => this.generateRowHtml(row)).join('')}
+                                    ${tableRows}
                                 </tbody>
                             </table>
+                            <div class="px-3 pb-3">
+                                ${weekendBtnHtml}
+                            </div>
                         </div>
                     </div>
                 `;
             },
 
-            generateRowHtml(row) {
+            generateRowHtml(row, isWeekendRow = false) {
                 const date = new Date(row.근무일자);
                 const dayName = ['일','월','화','수','목','금','토'][date.getDay()];
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const dayOfWeek = date.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isToday = TimeUtils.isToday(row.근무일자);
+                const isFuture = TimeUtils.isFuture(row.근무일자);
+                
                 const dateClass = isWeekend ? "text-red-500" : "text-slate-700";
                 const inTime = TimeUtils.cleanTimeStr(row.출근시간);
                 const outTime = TimeUtils.cleanTimeStr(row.퇴근시간);
                 const leaveTime = TimeUtils.cleanTimeStr(row.외출시간);
 
+                // 행 클래스 결정
+                let rowClasses = "hover:bg-slate-50 transition-colors data-row";
+                if (isToday) rowClasses += " today-row";
+                else if (isFuture) rowClasses += " future-row";
+                if (isWeekend || isWeekendRow) rowClasses += " weekend-row";
+
+                const todayBadge = isToday ? '<span class="today-badge">오늘</span>' : '';
+                const futureIcon = isFuture && !isWeekend ? '<span class="text-slate-400 text-[10px] ml-1">(예정)</span>' : '';
+
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors data-row">
+                    <tr class="${rowClasses}" data-date="${row.근무일자}">
                         <td class="p-3 whitespace-nowrap">
-                            <div class="font-medium ${dateClass} date-cell">${row.근무일자}(${dayName})</div>
+                            <div class="font-medium ${dateClass} date-cell">${row.근무일자}(${dayName})${todayBadge}${futureIcon}</div>
                             <div class="text-[10px] text-red-500 hidden core-msg">⚠️ 코어타임</div>
                         </td>
                         <td class="p-3"><input type="text" class="time-input clock-in" value="${inTime}" placeholder="09:00"></td>
@@ -404,7 +578,8 @@
                 groupedData: { weekly: {}, monthly: {} },
                 currentTab: 'weekly',
                 holidays: new Set(),
-                adjustments: {}
+                adjustments: {},
+                showWeekends: {} // { "name_weekKey": ["2024-12-07", "2024-12-08"] }
             },
 
             init() {
@@ -426,6 +601,18 @@
             adjustDays(sectionId, val) {
                 this.state.adjustments[sectionId] = (this.state.adjustments[sectionId] || 0) + val;
                 this.calculateAll();
+            },
+
+            toggleWeekend(name, weekKey) {
+                const key = `${name}_${weekKey}`;
+                const weekendDates = TimeUtils.getWeekendDates(weekKey);
+                
+                if (this.state.showWeekends[key]) {
+                    delete this.state.showWeekends[key];
+                } else {
+                    this.state.showWeekends[key] = weekendDates;
+                }
+                this.render();
             },
 
             async handleFileUpload(e) {
@@ -491,7 +678,7 @@
             render() {
                 const container = document.getElementById('results-container');
                 container.innerHTML = '';
-                const { groupedData, currentTab } = this.state;
+                const { groupedData, currentTab, showWeekends } = this.state;
                 const dataMap = groupedData[currentTab];
                 
                 Object.keys(dataMap).sort().forEach(name => {
@@ -502,7 +689,7 @@
                     keys.forEach(key => {
                         const rows = dataMap[name][key];
                         rows.sort((a,b) => (a.근무일자 > b.근무일자) ? 1 : -1);
-                        userGroup.innerHTML += UIManager.renderEmpSection(name, key, rows, currentTab);
+                        userGroup.innerHTML += UIManager.renderEmpSection(name, key, rows, currentTab, showWeekends);
                     });
                     container.appendChild(userGroup);
                 });
@@ -527,25 +714,34 @@
                     let totalHours = 0;
                     let lastWorkedDateStr = null;
                     const workedDates = new Set();
+                    let todayHours = 0;
+                    let hasTodayClockIn = false;
+                    let todayClockInTime = null;
 
                     rows.forEach(tr => {
-                        const dateText = tr.querySelector('.date-cell').innerText.split('(')[0];
-                        workedDates.add(dateText);
-                        lastWorkedDateStr = dateText;
+                        const dateStr = tr.dataset.date;
+                        const isToday = TimeUtils.isToday(dateStr);
 
                         const inStr = tr.querySelector('.clock-in').value;
                         const outStr = tr.querySelector('.clock-out').value;
                         const leaveH = TimeUtils.timeToHours(tr.querySelector('.leave-hours-input').value);
                         const type = tr.querySelector('.leave-selector').value;
 
-                        const inDate = TimeUtils.parseSmartTime(inStr, dateText);
-                        let outDate = TimeUtils.parseSmartTime(outStr, dateText);
+                        const inDate = TimeUtils.parseSmartTime(inStr, dateStr);
+                        let outDate = TimeUtils.parseSmartTime(outStr, dateStr);
                         if (inDate && outDate && outDate < inDate) outDate.setDate(outDate.getDate() + 1);
 
                         let dayHours = 0;
                         if (inDate) {
+                            workedDates.add(dateStr);
+                            lastWorkedDateStr = dateStr;
                             if (outDate) dayHours = TimeUtils.calcDuration(inDate, outDate);
                             else dayHours = TimeUtils.calcDuration(inDate, new Date());
+                            
+                            if (isToday) {
+                                hasTodayClockIn = true;
+                                todayClockInTime = inDate;
+                            }
                         }
 
                         dayHours = Math.max(0, dayHours - leaveH);
@@ -558,11 +754,12 @@
                         const coreMsg = tr.querySelector('.core-msg');
                         const dateCell = tr.querySelector('.date-cell');
                         if (type === 'normal' && inDate) {
-                            const cS = TimeUtils.parseSmartTime(coreStart, dateText);
+                            const cS = TimeUtils.parseSmartTime(coreStart, dateStr);
                             if (inDate > cS) { coreMsg.classList.remove('hidden'); dateCell.classList.add('core-violation'); }
                             else { coreMsg.classList.add('hidden'); dateCell.classList.remove('core-violation'); }
                         } else { coreMsg.classList.add('hidden'); dateCell.classList.remove('core-violation'); }
 
+                        if (isToday) todayHours = dayHours;
                         totalHours += dayHours;
                     });
 
@@ -574,10 +771,10 @@
                     if (totalHours >= 52) warnBox.classList.remove('hidden');
                     else warnBox.classList.add('hidden');
 
-                    // 3. 주간 대시보드 (목표 달성 + 보상 휴가)
+                    // 3. 주간 대시보드 (목표 달성 + 금요일 퇴근 + 보상 휴가)
                     if (this.state.currentTab === 'weekly') {
                         const dashBox = document.getElementById(`dashboard-${sectionId}`);
-                        if(dashBox && lastWorkedDateStr) {
+                        if(dashBox) {
                             dashBox.classList.remove('hidden');
                             document.getElementById(`target-disp-${sectionId}`).innerText = targetHoursInput;
 
@@ -598,9 +795,27 @@
                             }
                             pBar.style.width = `${progressPct}%`;
 
-                            const start = new Date(lastWorkedDateStr); start.setDate(start.getDate() + 1);
-                            const endStr = new Date(sectionKey); endStr.setDate(endStr.getDate() + 6);
-                            const remAuto = TimeUtils.calcWorkingDays(start, endStr, this.state.holidays);
+                            // 남은 평일 계산
+                            const today = new Date();
+                            const todayStr = TimeUtils.formatDate(today);
+                            const friday = TimeUtils.getFriday(new Date(sectionKey));
+                            const fridayStr = TimeUtils.formatDate(friday);
+                            
+                            let remAuto = 0;
+                            const weekdayDates = TimeUtils.getWeekdayDates(sectionKey);
+                            weekdayDates.forEach(dateStr => {
+                                if (dateStr >= todayStr && dateStr <= fridayStr) {
+                                    if (!workedDates.has(dateStr) || dateStr === todayStr) {
+                                        // 오늘이거나 아직 근무 기록 없는 날
+                                        if (dateStr === todayStr && hasTodayClockIn) {
+                                            // 오늘 이미 출근한 경우 제외
+                                        } else {
+                                            remAuto++;
+                                        }
+                                    }
+                                }
+                            });
+                            
                             const adj = this.state.adjustments[sectionId] || 0;
                             const finalRemDays = Math.max(0, remAuto + adj);
                             
@@ -610,7 +825,7 @@
                             
                             if (finalRemDays > 0 && hoursLeft > 0) {
                                 const perDay = hoursLeft / finalRemDays;
-                                dailyTargetEl.innerText = TimeUtils.fmtH(perDay);
+                                dailyTargetEl.innerText = TimeUtils.fmtH_short(perDay);
                                 const dummy = new Date(); dummy.setHours(9,0,0,0);
                                 exitEstEl.innerText = `(09:00 출근 시 ${TimeUtils.addTime(dummy, perDay)} 퇴근)`;
                             } else {
@@ -618,16 +833,85 @@
                                 exitEstEl.innerText = hoursLeft <= 0 ? "목표 달성 완료" : "일정 부족";
                             }
 
-                            // (B) 보상 휴가 시뮬레이션 (40시간 초과 시 1.5배)
-                            // 1. 현재 기준
+                            // (B) 금요일 퇴근 예측
+                            const fridayRemainEl = document.getElementById(`friday-remain-${sectionId}`);
+                            const fridayEstEl = document.getElementById(`friday-estimate-${sectionId}`);
+                            const fridayTipEl = document.getElementById(`friday-tip-${sectionId}`);
+                            
+                            fridayRemainEl.innerText = TimeUtils.fmtH(hoursLeft);
+                            
+                            const todayDayOfWeek = today.getDay(); // 0=일, 1=월, ..., 5=금, 6=토
+                            const isFridayOrLater = todayDayOfWeek >= 5 || todayDayOfWeek === 0;
+                            const isThisWeek = todayStr >= sectionKey && todayStr <= fridayStr;
+                            
+                            if (hoursLeft <= 0) {
+                                fridayEstEl.innerHTML = `<div class="text-emerald-900 font-bold text-center py-2">🎉 이미 목표 달성!</div>`;
+                                fridayTipEl.innerText = '';
+                            } else if (!isThisWeek) {
+                                fridayEstEl.innerHTML = `<div class="text-slate-500 text-center py-2">지난 주 데이터입니다</div>`;
+                                fridayTipEl.innerText = '';
+                            } else if (todayDayOfWeek === 5) {
+                                // 오늘이 금요일
+                                let estimateHtml = '';
+                                [9, 10].forEach(startH => {
+                                    const startTime = new Date(); startTime.setHours(startH, 0, 0, 0);
+                                    const alreadyWorked = hasTodayClockIn ? todayHours : 0;
+                                    const needMore = hoursLeft - alreadyWorked;
+                                    const exitTime = TimeUtils.addTime(startTime, Math.max(0, needMore));
+                                    estimateHtml += `
+                                        <div class="flex justify-between items-center">
+                                            <span>${String(startH).padStart(2,'0')}:00 출근 시:</span>
+                                            <span class="font-bold text-emerald-900">${exitTime} 퇴근</span>
+                                        </div>
+                                    `;
+                                });
+                                
+                                if (hasTodayClockIn && todayClockInTime) {
+                                    const actualStartH = todayClockInTime.getHours();
+                                    const actualStartM = todayClockInTime.getMinutes();
+                                    const needMore = hoursLeft;
+                                    const exitTime = TimeUtils.addTime(todayClockInTime, Math.max(0, needMore));
+                                    estimateHtml = `
+                                        <div class="flex justify-between items-center bg-emerald-100 -mx-1 px-1 py-1 rounded">
+                                            <span>오늘 실제 출근:</span>
+                                            <span class="font-bold text-emerald-900">${String(actualStartH).padStart(2,'0')}:${String(actualStartM).padStart(2,'0')}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center mt-1">
+                                            <span>예상 퇴근:</span>
+                                            <span class="font-bold text-lg text-emerald-900">${exitTime}</span>
+                                        </div>
+                                    `;
+                                }
+                                
+                                fridayEstEl.innerHTML = estimateHtml;
+                                fridayTipEl.innerText = hasTodayClockIn ? '* 현재 근무 중 기준' : '* 금요일 단독 근무 기준';
+                            } else {
+                                // 금요일 전
+                                const daysUntilFri = 5 - todayDayOfWeek;
+                                const perDayIfSpread = hoursLeft / Math.max(1, daysUntilFri);
+                                
+                                let estimateHtml = '';
+                                [9, 10].forEach(startH => {
+                                    const startTime = new Date(); startTime.setHours(startH, 0, 0, 0);
+                                    const exitTime = TimeUtils.addTime(startTime, hoursLeft);
+                                    estimateHtml += `
+                                        <div class="flex justify-between items-center">
+                                            <span>${String(startH).padStart(2,'0')}:00 출근 시:</span>
+                                            <span class="font-bold text-emerald-900">${exitTime} 퇴근</span>
+                                        </div>
+                                    `;
+                                });
+                                fridayEstEl.innerHTML = estimateHtml;
+                                fridayTipEl.innerText = `💡 분산 시(${daysUntilFri}일): 하루 ${TimeUtils.fmtH_short(perDayIfSpread)}`;
+                            }
+
+                            // (C) 보상 휴가 시뮬레이션 (40시간 초과 시 1.5배)
                             const over40_curr = Math.max(0, totalHours - 40);
                             const reward_curr = over40_curr * 1.5;
                             const reward_curr_days = reward_curr / 8;
                             document.getElementById(`reward-curr-${sectionId}`).innerText = 
                                 reward_curr > 0 ? `${reward_curr.toFixed(1)}h (${TimeUtils.fmtLeave(reward_curr_days)})` : "없음";
 
-                            // 2. 목표 달성 기준
-                            // 만약 현재 근무시간이 이미 목표보다 많으면 현재시간 기준, 아니면 목표시간 기준
                             const projectedTotal = Math.max(totalHours, targetHoursInput); 
                             const over40_proj = Math.max(0, projectedTotal - 40);
                             const reward_proj = over40_proj * 1.5;
