@@ -339,11 +339,13 @@ const App = {
             const rows = tbody.querySelectorAll('.data-row');
 
             let totalHours = 0;
+            let totalHoursExcludingToday = 0; // 오늘 제외 근무시간 (금요일 퇴근 예측용)
             let lastWorkedDateStr = null;
             const workedDates = new Set();
             let todayHours = 0;
             let hasTodayClockIn = false;
             let todayClockInTime = null;
+            let todayHasClockOut = false; // 오늘 퇴근 입력 여부
 
             rows.forEach(tr => {
                 const dateStr = tr.dataset.date;
@@ -362,12 +364,16 @@ const App = {
                 if (inDate) {
                     workedDates.add(dateStr);
                     lastWorkedDateStr = dateStr;
-                    if (outDate) dayHours = TimeUtils.calcDuration(inDate, outDate);
-                    else dayHours = TimeUtils.calcDuration(inDate, new Date());
+                    if (outDate) {
+                        dayHours = TimeUtils.calcDuration(inDate, outDate);
+                    } else {
+                        dayHours = TimeUtils.calcDuration(inDate, new Date());
+                    }
 
                     if (isToday) {
                         hasTodayClockIn = true;
                         todayClockInTime = inDate;
+                        todayHasClockOut = !!outDate;
                     }
                 }
 
@@ -394,7 +400,11 @@ const App = {
                     dateCell.classList.remove('core-violation');
                 }
 
-                if (isToday) todayHours = dayHours;
+                if (isToday) {
+                    todayHours = dayHours;
+                } else {
+                    totalHoursExcludingToday += dayHours;
+                }
                 totalHours += dayHours;
             });
 
@@ -408,12 +418,12 @@ const App = {
 
             // 3. 주간 대시보드
             if (this.state.currentTab === 'weekly') {
-                this.updateWeeklyDashboard(sectionId, sectionKey, totalHours, targetHoursInput, workedDates, todayHours, hasTodayClockIn, todayClockInTime);
+                this.updateWeeklyDashboard(sectionId, sectionKey, totalHours, totalHoursExcludingToday, targetHoursInput, workedDates, todayHours, hasTodayClockIn, todayClockInTime, todayHasClockOut);
             }
         });
     },
 
-    updateWeeklyDashboard(sectionId, sectionKey, totalHours, targetHoursInput, workedDates, todayHours, hasTodayClockIn, todayClockInTime) {
+    updateWeeklyDashboard(sectionId, sectionKey, totalHours, totalHoursExcludingToday, targetHoursInput, workedDates, todayHours, hasTodayClockIn, todayClockInTime, todayHasClockOut) {
         const dashBox = document.getElementById(`dashboard-${sectionId}`);
         if (!dashBox) return;
 
@@ -477,14 +487,14 @@ const App = {
             exitEstEl.innerText = hoursLeft <= 0 ? "목표 달성 완료" : "일정 부족";
         }
 
-        // (B) 금요일 퇴근 예측
-        this.updateFridayEstimate(sectionId, sectionKey, hoursLeft, todayHours, hasTodayClockIn, todayClockInTime);
+        // (B) 금요일 퇴근 예측 - 오늘 제외 근무시간 기준
+        this.updateFridayEstimate(sectionId, sectionKey, totalHoursExcludingToday, targetHoursInput, hasTodayClockIn, todayClockInTime, todayHasClockOut);
 
         // (C) 보상 휴가 시뮬레이션
         this.updateRewardLeave(sectionId, totalHours, targetHoursInput);
     },
 
-    updateFridayEstimate(sectionId, sectionKey, hoursLeft, todayHours, hasTodayClockIn, todayClockInTime) {
+    updateFridayEstimate(sectionId, sectionKey, totalHoursExcludingToday, targetHoursInput, hasTodayClockIn, todayClockInTime, todayHasClockOut) {
         const fridayRemainEl = document.getElementById(`friday-remain-${sectionId}`);
         const fridayEstEl = document.getElementById(`friday-estimate-${sectionId}`);
         const fridayTipEl = document.getElementById(`friday-tip-${sectionId}`);
@@ -494,13 +504,15 @@ const App = {
         const friday = TimeUtils.getFriday(new Date(sectionKey));
         const fridayStr = TimeUtils.formatDate(friday);
 
-        fridayRemainEl.innerText = TimeUtils.fmtH(hoursLeft);
-
         const todayDayOfWeek = today.getDay();
-        const isFridayOrLater = todayDayOfWeek >= 5 || todayDayOfWeek === 0;
         const isThisWeek = todayStr >= sectionKey && todayStr <= fridayStr;
 
-        if (hoursLeft <= 0) {
+        // 금요일에 필요한 근무시간 = 목표 - 오늘 제외 근무시간
+        const hoursNeededOnFriday = Math.max(0, targetHoursInput - totalHoursExcludingToday);
+
+        fridayRemainEl.innerText = TimeUtils.fmtH(hoursNeededOnFriday);
+
+        if (hoursNeededOnFriday <= 0) {
             fridayEstEl.innerHTML = `<div class="text-emerald-900 font-bold text-center py-2">🎉 이미 목표 달성!</div>`;
             fridayTipEl.innerText = '';
         } else if (!isThisWeek) {
@@ -509,49 +521,56 @@ const App = {
         } else if (todayDayOfWeek === 5) {
             // 오늘이 금요일
             let estimateHtml = '';
-            [9, 10].forEach(startH => {
-                const startTime = new Date();
-                startTime.setHours(startH, 0, 0, 0);
-                const alreadyWorked = hasTodayClockIn ? todayHours : 0;
-                const needMore = hoursLeft - alreadyWorked;
-                const exitTime = TimeUtils.addTime(startTime, Math.max(0, needMore));
-                estimateHtml += `
-                    <div class="flex justify-between items-center">
-                        <span>${String(startH).padStart(2, '0')}:00 출근 시:</span>
-                        <span class="font-bold text-emerald-900">${exitTime} 퇴근</span>
-                    </div>
-                `;
-            });
 
-            if (hasTodayClockIn && todayClockInTime) {
+            if (hasTodayClockIn && todayClockInTime && !todayHasClockOut) {
+                // 출근했고 아직 퇴근 안 함 - 실제 출근 시간 기준 표시
                 const actualStartH = todayClockInTime.getHours();
                 const actualStartM = todayClockInTime.getMinutes();
-                const needMore = hoursLeft;
-                const exitTime = TimeUtils.addTime(todayClockInTime, Math.max(0, needMore));
+                const exitTime = TimeUtils.addTime(todayClockInTime, hoursNeededOnFriday);
+                
                 estimateHtml = `
                     <div class="flex justify-between items-center bg-emerald-100 -mx-1 px-1 py-1 rounded">
-                        <span>오늘 실제 출근:</span>
+                        <span>오늘 출근:</span>
                         <span class="font-bold text-emerald-900">${String(actualStartH).padStart(2, '0')}:${String(actualStartM).padStart(2, '0')}</span>
                     </div>
                     <div class="flex justify-between items-center mt-1">
-                        <span>예상 퇴근:</span>
+                        <span>퇴근 예상:</span>
                         <span class="font-bold text-lg text-emerald-900">${exitTime}</span>
                     </div>
                 `;
+                fridayTipEl.innerText = `* 오늘 ${TimeUtils.fmtH(hoursNeededOnFriday)} 근무 필요`;
+            } else if (hasTodayClockIn && todayHasClockOut) {
+                // 출근하고 퇴근도 함
+                fridayEstEl.innerHTML = `<div class="text-emerald-900 font-bold text-center py-2">✅ 오늘 근무 완료</div>`;
+                fridayTipEl.innerText = '';
+                return;
+            } else {
+                // 아직 출근 안 함 - 예상 시간 표시
+                [9, 10].forEach(startH => {
+                    const startTime = new Date();
+                    startTime.setHours(startH, 0, 0, 0);
+                    const exitTime = TimeUtils.addTime(startTime, hoursNeededOnFriday);
+                    estimateHtml += `
+                        <div class="flex justify-between items-center">
+                            <span>${String(startH).padStart(2, '0')}:00 출근 시:</span>
+                            <span class="font-bold text-emerald-900">${exitTime} 퇴근</span>
+                        </div>
+                    `;
+                });
+                fridayTipEl.innerText = `* 오늘 ${TimeUtils.fmtH(hoursNeededOnFriday)} 근무 필요`;
             }
 
             fridayEstEl.innerHTML = estimateHtml;
-            fridayTipEl.innerText = hasTodayClockIn ? '* 현재 근무 중 기준' : '* 금요일 단독 근무 기준';
         } else {
-            // 금요일 전
+            // 금요일 전 (월~목)
             const daysUntilFri = 5 - todayDayOfWeek;
-            const perDayIfSpread = hoursLeft / Math.max(1, daysUntilFri);
+            const perDayIfSpread = hoursNeededOnFriday / Math.max(1, daysUntilFri);
 
             let estimateHtml = '';
             [9, 10].forEach(startH => {
                 const startTime = new Date();
                 startTime.setHours(startH, 0, 0, 0);
-                const exitTime = TimeUtils.addTime(startTime, hoursLeft);
+                const exitTime = TimeUtils.addTime(startTime, hoursNeededOnFriday);
                 estimateHtml += `
                     <div class="flex justify-between items-center">
                         <span>${String(startH).padStart(2, '0')}:00 출근 시:</span>
