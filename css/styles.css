@@ -1,0 +1,177 @@
+/* 기본 폰트 */
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* 시간 입력 필드 */
+.time-input {
+    width: 100%;
+    min-width: 80px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.time-input:focus {
+    border-color: #4f46e5;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+/* 외출시간 입력 필드 */
+.leave-hours-input {
+    width: 40px;
+    padding: 4px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* 근무강도 시각화 바 */
+.vis-bar-bg {
+    background-color: #e5e7eb;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    width: 100px;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+}
+
+.vis-bar-fill {
+    height: 100%;
+    background-color: #6366f1;
+    transition: width 0.5s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.vis-bar-over {
+    height: 100%;
+    background-color: #ef4444;
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 1rem 1rem;
+    transition: width 0.5s ease;
+    position: absolute;
+    top: 0;
+}
+
+/* 탭 버튼 */
+.tab-btn {
+    padding: 0.5rem 1rem;
+    font-weight: bold;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    color: #64748b;
+}
+
+.tab-btn:hover {
+    color: #4f46e5;
+    background-color: #eef2ff;
+}
+
+.tab-btn.active {
+    background-color: #e0e7ff;
+    color: #4338ca;
+}
+
+/* 코어타임 위반 표시 */
+.core-violation {
+    text-decoration: underline;
+    text-decoration-color: #ef4444;
+    text-decoration-style: wavy;
+    color: #ef4444;
+}
+
+/* 모달 스타일 */
+.modal {
+    transition: opacity 0.25s ease;
+}
+
+body.modal-active {
+    overflow-y: hidden;
+}
+
+/* 프로그레스 바 스트라이프 애니메이션 */
+.progress-striped {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 1rem 1rem;
+}
+
+/* 오늘 행 하이라이트 */
+.today-row {
+    background: linear-gradient(90deg, #eef2ff 0%, #ffffff 100%) !important;
+    border-left: 3px solid #6366f1;
+}
+
+.today-row:hover {
+    background: linear-gradient(90deg, #e0e7ff 0%, #f8fafc 100%) !important;
+}
+
+.today-badge {
+    background: #6366f1;
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    margin-left: 6px;
+    font-weight: bold;
+}
+
+/* 미래 날짜 스타일 */
+.future-row {
+    background-color: #f8fafc;
+}
+
+.future-row .time-input,
+.future-row .leave-hours-input {
+    background-color: #f1f5f9;
+    border-style: dashed;
+}
+
+/* 주말 행 스타일 */
+.weekend-row {
+    background-color: #fef2f2;
+}
+
+.weekend-row.today-row {
+    background: linear-gradient(90deg, #fee2e2 0%, #ffffff 100%) !important;
+    border-left: 3px solid #ef4444;
+}
+
+/* 주말 추가 버튼 */
+.add-weekend-btn {
+    border: 2px dashed #d1d5db;
+    color: #9ca3af;
+    transition: all 0.2s;
+}
+
+.add-weekend-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background-color: #eef2ff;
+}
