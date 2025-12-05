@@ -175,3 +175,60 @@ body.modal-active {
     color: #6366f1;
     background-color: #eef2ff;
 }
+
+/* 드래그 앤 드롭 영역 */
+.drop-zone {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover {
+    border-color: #6366f1;
+    background-color: #f8fafc;
+}
+
+.drop-zone.drag-over {
+    border-color: #6366f1;
+    background-color: #eef2ff;
+    border-width: 3px;
+    transform: scale(1.01);
+}
+
+.drop-zone.drag-over .drop-icon {
+    color: #6366f1;
+    transform: scale(1.1);
+    transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over .drop-text {
+    color: #6366f1;
+}
+
+/* 키보드 네비게이션 포커스 스타일 */
+.time-input:focus,
+.leave-hours-input:focus,
+.leave-selector:focus {
+    border-color: #4f46e5;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    background-color: #fefefe;
+}
+
+/* 현재 편집 중인 행 하이라이트 */
+.data-row:focus-within {
+    background-color: #f5f3ff !important;
+}
+
+.data-row:focus-within td:first-child {
+    border-left: 3px solid #6366f1;
+}
+
+/* 새로고침 버튼 회전 애니메이션 */
+.btn-refresh-spin svg {
+    animation: spin 0.5s ease-in-out;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

@@ -31,8 +31,17 @@ const App = {
             this.calculateAll();
         });
 
+        // 새로고침 버튼
+        document.getElementById('btn-refresh').addEventListener('click', () => this.refreshData());
+
+        // 드래그 앤 드롭 설정
+        this.setupDragAndDrop();
+
         // 이벤트 위임: 결과 컨테이너에서 모든 입력 이벤트 처리
         this.setupEventDelegation();
+
+        // 키보드 네비게이션 설정
+        this.setupKeyboardNavigation();
 
         window.App = this;
 
@@ -42,6 +51,187 @@ const App = {
             this.processData();
             this.render();
         }
+    },
+
+    /**
+     * 새로고침 버튼 클릭 시 데이터 재계산
+     */
+    refreshData() {
+        const btn = document.getElementById('btn-refresh');
+        btn.classList.add('btn-refresh-spin');
+        
+        // 현재 DOM 데이터 수집 후 재계산
+        this.saveDataToStorage();
+        this.calculateAll();
+        
+        setTimeout(() => {
+            btn.classList.remove('btn-refresh-spin');
+        }, 500);
+    },
+
+    /**
+     * 드래그 앤 드롭 설정
+     */
+    setupDragAndDrop() {
+        const dropZone = document.getElementById('placeholder');
+        const container = document.getElementById('results-container');
+
+        // 드래그 이벤트 (placeholder와 전체 컨테이너 모두)
+        [dropZone, container].forEach(zone => {
+            if (!zone) return;
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropZone) dropZone.classList.add('drag-over');
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropZone) dropZone.classList.remove('drag-over');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropZone) dropZone.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].name.endsWith('.csv')) {
+                    this.processDroppedFile(files[0]);
+                } else {
+                    alert('CSV 파일만 업로드 가능합니다.');
+                }
+            });
+        });
+
+        // placeholder 클릭 시 파일 선택
+        if (dropZone) {
+            dropZone.addEventListener('click', () => {
+                document.getElementById('csvUploader').click();
+            });
+        }
+
+        // 전체 창에서 드래그 시 기본 동작 방지
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+    },
+
+    /**
+     * 드롭된 파일 처리
+     */
+    processDroppedFile(file) {
+        document.getElementById('placeholder').style.display = 'none';
+        document.getElementById('loading-spinner').classList.remove('hidden');
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                this.state.rawData = this.parseCSV(evt.target.result);
+                this.saveDataToStorage();
+                await this.fetchHolidays();
+                this.processData();
+                this.render();
+            } catch (err) {
+                alert("오류: " + err.message);
+                document.getElementById('placeholder').style.display = 'block';
+            } finally {
+                document.getElementById('loading-spinner').classList.add('hidden');
+            }
+        };
+        reader.readAsText(file, "UTF-8");
+    },
+
+    /**
+     * 키보드 네비게이션 설정
+     */
+    setupKeyboardNavigation() {
+        const container = document.getElementById('results-container');
+
+        container.addEventListener('keydown', (e) => {
+            const target = e.target;
+            if (!target.matches('.time-input, .leave-hours-input, .leave-selector')) return;
+
+            const currentRow = target.closest('tr');
+            const currentCell = target.closest('td');
+            if (!currentRow || !currentCell) return;
+
+            const inputs = Array.from(currentRow.querySelectorAll('.time-input, .leave-hours-input, .leave-selector'));
+            const currentIndex = inputs.indexOf(target);
+            const allRows = Array.from(currentRow.closest('tbody').querySelectorAll('tr'));
+            const rowIndex = allRows.indexOf(currentRow);
+
+            switch (e.key) {
+                case 'Enter':
+                    e.preventDefault();
+                    // 다음 행 같은 위치로 이동
+                    if (rowIndex < allRows.length - 1) {
+                        const nextRow = allRows[rowIndex + 1];
+                        const nextInputs = nextRow.querySelectorAll('.time-input, .leave-hours-input, .leave-selector');
+                        if (nextInputs[currentIndex]) {
+                            nextInputs[currentIndex].focus();
+                            nextInputs[currentIndex].select();
+                        }
+                    }
+                    break;
+
+                case 'Tab':
+                    // 기본 Tab 동작 유지, 행 끝에서 다음 행으로 자연스럽게 이동
+                    break;
+
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (rowIndex > 0) {
+                        const prevRow = allRows[rowIndex - 1];
+                        const prevInputs = prevRow.querySelectorAll('.time-input, .leave-hours-input, .leave-selector');
+                        if (prevInputs[currentIndex]) {
+                            prevInputs[currentIndex].focus();
+                            prevInputs[currentIndex].select();
+                        }
+                    }
+                    break;
+
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (rowIndex < allRows.length - 1) {
+                        const nextRow = allRows[rowIndex + 1];
+                        const nextInputs = nextRow.querySelectorAll('.time-input, .leave-hours-input, .leave-selector');
+                        if (nextInputs[currentIndex]) {
+                            nextInputs[currentIndex].focus();
+                            nextInputs[currentIndex].select();
+                        }
+                    }
+                    break;
+
+                case 'ArrowLeft':
+                    if (target.selectionStart === 0 || target.tagName === 'SELECT') {
+                        e.preventDefault();
+                        if (currentIndex > 0) {
+                            inputs[currentIndex - 1].focus();
+                            if (inputs[currentIndex - 1].select) inputs[currentIndex - 1].select();
+                        }
+                    }
+                    break;
+
+                case 'ArrowRight':
+                    if (target.selectionStart === target.value?.length || target.tagName === 'SELECT') {
+                        e.preventDefault();
+                        if (currentIndex < inputs.length - 1) {
+                            inputs[currentIndex + 1].focus();
+                            if (inputs[currentIndex + 1].select) inputs[currentIndex + 1].select();
+                        }
+                    }
+                    break;
+            }
+        });
+
+        // input 포커스 시 전체 선택
+        container.addEventListener('focus', (e) => {
+            if (e.target.matches('.time-input, .leave-hours-input')) {
+                setTimeout(() => e.target.select(), 0);
+            }
+        }, true);
     },
 
     /**

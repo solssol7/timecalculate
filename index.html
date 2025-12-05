@@ -29,12 +29,19 @@
                     </button>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
-                    <label for="csvUploader" class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold text-sm shadow transition-colors inline-flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                        </svg>
-                        CSV 파일 업로드
-                    </label>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-refresh" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg font-bold text-sm shadow-sm transition-colors inline-flex items-center" title="데이터 새로고침">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </button>
+                        <label for="csvUploader" class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold text-sm shadow transition-colors inline-flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                            CSV 파일 업로드
+                        </label>
+                    </div>
                     <input type="file" id="csvUploader" accept=".csv" class="hidden">
                 </div>
             </div>
@@ -72,12 +79,13 @@
 
         <!-- 결과 컨테이너 -->
         <div id="results-container" class="p-6 space-y-10 flex-grow bg-slate-50">
-            <div id="placeholder" class="text-center text-slate-400 py-20 border-2 border-dashed border-slate-200 rounded-xl bg-white">
-                <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div id="placeholder" class="drop-zone text-center text-slate-400 py-20 border-2 border-dashed border-slate-200 rounded-xl bg-white transition-all">
+                <svg class="w-16 h-16 mx-auto mb-4 text-slate-300 drop-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <p class="text-lg font-medium text-slate-500">근태 CSV 파일을 업로드해주세요.</p>
-                <p class="text-sm mt-2 text-slate-400">데이터가 길어도(YYYY-MM-DD HH:mm:ss) 자동으로 인식합니다.</p>
+                <p class="text-lg font-medium text-slate-500 drop-text">근태 CSV 파일을 업로드해주세요.</p>
+                <p class="text-sm mt-2 text-slate-400">파일을 여기에 드래그하거나 버튼을 클릭하세요.</p>
+                <p class="text-xs mt-4 text-slate-300">YYYY-MM-DD HH:mm:ss 형식도 자동 인식</p>
             </div>
         </div>
     </div>
