@@ -34,6 +34,9 @@ const App = {
         // 새로고침 버튼
         document.getElementById('btn-refresh').addEventListener('click', () => this.refreshData());
 
+        // 데이터 지우기 버튼
+        document.getElementById('btn-clear').addEventListener('click', () => this.clearData());
+
         // 드래그 앤 드롭 설정
         this.setupDragAndDrop();
 
@@ -47,7 +50,10 @@ const App = {
 
         // 저장된 데이터가 있으면 렌더링
         if (this.state.rawData.length > 0) {
-            document.getElementById('placeholder').style.display = 'none';
+            const placeholder = document.getElementById('placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
             this.processData();
             this.render();
         }
@@ -122,12 +128,19 @@ const App = {
      * 드롭된 파일 처리
      */
     processDroppedFile(file) {
-        document.getElementById('placeholder').style.display = 'none';
+        const placeholder = document.getElementById('placeholder');
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
         document.getElementById('loading-spinner').classList.remove('hidden');
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
+                // 새 CSV 업로드 시 기존 상태 초기화
+                this.state.adjustments = {};
+                this.state.showWeekends = {};
+                
                 this.state.rawData = this.parseCSV(evt.target.result);
                 this.saveDataToStorage();
                 await this.fetchHolidays();
@@ -135,7 +148,10 @@ const App = {
                 this.render();
             } catch (err) {
                 alert("오류: " + err.message);
-                document.getElementById('placeholder').style.display = 'block';
+                // 오류 시 placeholder 다시 표시
+                if (placeholder) {
+                    placeholder.style.display = 'block';
+                }
             } finally {
                 document.getElementById('loading-spinner').classList.add('hidden');
             }
@@ -387,6 +403,40 @@ const App = {
     },
 
     /**
+     * 현재 CSV 데이터 지우기 (설정은 유지)
+     */
+    clearData() {
+        if (!confirm('현재 CSV 데이터를 지우시겠습니까?')) return;
+        
+        // 데이터 관련 상태만 초기화
+        this.state.rawData = [];
+        this.state.groupedData = { weekly: {}, monthly: {} };
+        this.state.adjustments = {};
+        this.state.showWeekends = {};
+        
+        // 로컬 스토리지에서 데이터만 삭제 (설정은 유지)
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.DATA);
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.ADJUSTMENTS);
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.WEEKENDS);
+        
+        // UI 초기화
+        const container = document.getElementById('results-container');
+        container.innerHTML = `
+            <div id="placeholder" class="drop-zone text-center text-slate-400 py-20 border-2 border-dashed border-slate-200 rounded-xl bg-white transition-all">
+                <svg class="w-16 h-16 mx-auto mb-4 text-slate-300 drop-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="text-lg font-medium text-slate-500 drop-text">근태 CSV 파일을 업로드해주세요.</p>
+                <p class="text-sm mt-2 text-slate-400">파일을 여기에 드래그하거나 버튼을 클릭하세요.</p>
+                <p class="text-xs mt-4 text-slate-300">YYYY-MM-DD HH:mm:ss 형식도 자동 인식</p>
+            </div>
+        `;
+        
+        // 드래그 앤 드롭 다시 설정
+        this.setupDragAndDrop();
+    },
+
+    /**
      * 로컬 스토리지 초기화
      */
     clearStorage() {
@@ -433,12 +483,20 @@ const App = {
     async handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-        document.getElementById('placeholder').style.display = 'none';
+        
+        const placeholder = document.getElementById('placeholder');
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
         document.getElementById('loading-spinner').classList.remove('hidden');
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
+                // 새 CSV 업로드 시 기존 상태 초기화
+                this.state.adjustments = {};
+                this.state.showWeekends = {};
+                
                 this.state.rawData = this.parseCSV(evt.target.result);
                 this.saveDataToStorage();
                 await this.fetchHolidays();
@@ -446,11 +504,18 @@ const App = {
                 this.render();
             } catch (err) {
                 alert("오류: " + err.message);
+                // 오류 시 placeholder 다시 표시
+                if (placeholder) {
+                    placeholder.style.display = 'block';
+                }
             } finally {
                 document.getElementById('loading-spinner').classList.add('hidden');
             }
         };
         reader.readAsText(file, "UTF-8");
+        
+        // 같은 파일 다시 선택 가능하도록 초기화
+        e.target.value = '';
     },
 
     parseCSV(text) {

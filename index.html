@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>근무시간 정산 리포트 Pro +</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=2.0.2">
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
@@ -30,6 +30,11 @@
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
                     <div class="flex items-center gap-2">
+                        <button id="btn-clear" class="bg-white border border-red-300 hover:bg-red-50 text-red-500 py-2 px-3 rounded-lg font-bold text-sm shadow-sm transition-colors inline-flex items-center" title="데이터 지우기">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
                         <button id="btn-refresh" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg font-bold text-sm shadow-sm transition-colors inline-flex items-center" title="데이터 새로고침">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -137,9 +142,9 @@
     </div>
 
     <!-- JavaScript 로드 (순서 중요!) -->
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/config.js?v=2.0.2"></script>
+    <script src="js/utils.js?v=2.0.2"></script>
+    <script src="js/ui.js?v=2.0.2"></script>
+    <script src="js/app.js?v=2.0.2"></script>
 </body>
 </html>
