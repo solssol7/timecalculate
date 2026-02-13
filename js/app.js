@@ -8,6 +8,7 @@ const App = {
         currentTab: 'weekly',
         holidays: new Set(),
         adjustments: {},
+        rewardClaims: {}, // { sectionId: { checked: boolean, hours: number } }
         showWeekends: {}
     },
 
@@ -139,6 +140,7 @@ const App = {
             try {
                 // 새 CSV 업로드 시 기존 상태 초기화
                 this.state.adjustments = {};
+                this.state.rewardClaims = {};
                 this.state.showWeekends = {};
                 
                 this.state.rawData = this.parseCSV(evt.target.result);
@@ -244,7 +246,7 @@ const App = {
 
         // input 포커스 시 전체 선택
         container.addEventListener('focus', (e) => {
-            if (e.target.matches('.time-input, .leave-hours-input')) {
+            if (e.target.matches('.time-input, .leave-hours-input, .reward-input')) {
                 setTimeout(() => e.target.select(), 0);
             }
         }, true);
@@ -256,8 +258,34 @@ const App = {
     setupEventDelegation() {
         const container = document.getElementById('results-container');
 
-        // change 이벤트 (select, 시간 입력 완료)
+        // change 이벤트 (select, 시간 입력 완료, 체크박스)
         container.addEventListener('change', (e) => {
+            // 보상휴가 체크박스 처리
+            if (e.target.matches('.reward-check')) {
+                const sectionId = e.target.dataset.section;
+                const isChecked = e.target.checked;
+                const wrapper = e.target.closest('.rounded-lg'); // renderTargetCard의 컨테이너
+                const input = wrapper.querySelector(`.reward-input[data-section="${sectionId}"]`);
+                
+                if (input) {
+                    input.disabled = !isChecked;
+                }
+                
+                this.updateRewardClaimState(sectionId);
+                this.debouncedCalculate();
+                this.saveDataToStorage();
+                return;
+            }
+
+            // 보상휴가 시간 입력 처리
+            if (e.target.matches('.reward-input')) {
+                const sectionId = e.target.dataset.section;
+                this.updateRewardClaimState(sectionId);
+                this.debouncedCalculate();
+                this.saveDataToStorage();
+                return;
+            }
+
             if (e.target.matches('.time-input, .leave-hours-input, .leave-selector')) {
                 this.debouncedCalculate();
                 this.saveDataToStorage();
@@ -266,7 +294,8 @@ const App = {
 
         // input 이벤트 (실시간 입력)
         container.addEventListener('input', (e) => {
-            if (e.target.matches('.time-input, .leave-hours-input')) {
+            if (e.target.matches('.time-input, .leave-hours-input, .reward-input')) {
+                // reward-input은 실시간 계산 시 너무 빈번할 수 있으므로 여기서도 디바운스 적용됨
                 this.debouncedCalculate();
             }
         });
@@ -282,6 +311,22 @@ const App = {
                 }
             }
         }, true); // capture phase로 blur 감지
+    },
+
+    // 현재 DOM 상태를 기반으로 rewardClaims State 업데이트
+    updateRewardClaimState(sectionId) {
+        const container = document.getElementById(`section-${sectionId}`);
+        if (!container) return;
+        
+        const check = container.querySelector(`.reward-check[data-section="${sectionId}"]`);
+        const input = container.querySelector(`.reward-input[data-section="${sectionId}"]`);
+        
+        if (check && input) {
+            this.state.rewardClaims[sectionId] = {
+                checked: check.checked,
+                hours: input.value
+            };
+        }
     },
 
     /**
@@ -318,6 +363,12 @@ const App = {
             const adjustments = localStorage.getItem(CONFIG.STORAGE_KEYS.ADJUSTMENTS);
             if (adjustments) {
                 this.state.adjustments = JSON.parse(adjustments);
+            }
+
+            // 보상휴가 설정 복원
+            const rewards = localStorage.getItem(CONFIG.STORAGE_KEYS.REWARDS);
+            if (rewards) {
+                this.state.rewardClaims = JSON.parse(rewards);
             }
 
             // 주말 표시 복원
@@ -361,6 +412,7 @@ const App = {
             const updatedData = this.collectCurrentData();
             localStorage.setItem(CONFIG.STORAGE_KEYS.DATA, JSON.stringify(updatedData));
             localStorage.setItem(CONFIG.STORAGE_KEYS.ADJUSTMENTS, JSON.stringify(this.state.adjustments));
+            localStorage.setItem(CONFIG.STORAGE_KEYS.REWARDS, JSON.stringify(this.state.rewardClaims)); // 보상휴가 상태 저장
             localStorage.setItem(CONFIG.STORAGE_KEYS.WEEKENDS, JSON.stringify(this.state.showWeekends));
         } catch (e) {
             console.warn('데이터 저장 실패:', e);
@@ -412,11 +464,13 @@ const App = {
         this.state.rawData = [];
         this.state.groupedData = { weekly: {}, monthly: {} };
         this.state.adjustments = {};
+        this.state.rewardClaims = {};
         this.state.showWeekends = {};
         
         // 로컬 스토리지에서 데이터만 삭제 (설정은 유지)
         localStorage.removeItem(CONFIG.STORAGE_KEYS.DATA);
         localStorage.removeItem(CONFIG.STORAGE_KEYS.ADJUSTMENTS);
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.REWARDS);
         localStorage.removeItem(CONFIG.STORAGE_KEYS.WEEKENDS);
         
         // UI 초기화
@@ -449,6 +503,7 @@ const App = {
             currentTab: 'weekly',
             holidays: new Set(),
             adjustments: {},
+            rewardClaims: {},
             showWeekends: {}
         };
         location.reload();
@@ -495,6 +550,7 @@ const App = {
             try {
                 // 새 CSV 업로드 시 기존 상태 초기화
                 this.state.adjustments = {};
+                this.state.rewardClaims = {};
                 this.state.showWeekends = {};
                 
                 this.state.rawData = this.parseCSV(evt.target.result);
@@ -632,6 +688,7 @@ const App = {
                     }
                 }
 
+                // 일반 휴가 차감
                 dayHours = Math.max(0, dayHours - leaveH);
                 if (type === 'annual') dayHours = 8;
                 else if (type === 'half') dayHours += 4;
@@ -662,6 +719,16 @@ const App = {
                 }
                 totalHours += dayHours;
             });
+
+            // --- 보상휴가 추가 로직 시작 ---
+            // 해당 섹션의 보상휴가 설정 확인
+            const rewardClaim = this.state.rewardClaims[sectionId] || { checked: false, hours: 0 };
+            if (rewardClaim.checked) {
+                const inputHours = parseFloat(rewardClaim.hours) || 0;
+                // 사용자가 입력한 시간을 "그대로" 반영 (곱하기 없음)
+                totalHours += inputHours;
+            }
+            // --- 보상휴가 추가 로직 끝 ---
 
             // 1. 총 근무시간
             document.getElementById(`total-${sectionId}`).innerText = TimeUtils.fmtH(totalHours);
