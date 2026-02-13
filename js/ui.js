@@ -147,7 +147,7 @@ const UIManager = {
                     <div class="flex items-center gap-1">
                         <input type="number" class="reward-input w-12 text-center text-xs border border-indigo-200 rounded py-1 px-1 focus:outline-none focus:border-indigo-500 font-bold text-indigo-700 bg-white disabled:bg-slate-100 disabled:text-slate-400" 
                             placeholder="0" value="${hoursVal}" ${isDisabled} data-section="${sectionId}" min="0" step="0.5">
-                        <span class="text-[10px] text-indigo-600 font-medium">시간 (×${CONFIG.REWARD_MULTIPLIER})</span>
+                        <span class="text-[10px] text-indigo-600 font-medium">시간</span>
                     </div>
                 </div>
             </div>
