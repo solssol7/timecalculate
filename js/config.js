@@ -38,7 +38,8 @@ const CONFIG = {
         DATA: 'worktime_data',
         SETTINGS: 'worktime_settings',
         ADJUSTMENTS: 'worktime_adjustments',
-        WEEKENDS: 'worktime_weekends'
+        WEEKENDS: 'worktime_weekends',
+        REWARDS: 'worktime_rewards' // 새로 추가된 키
     },
 
     // 디바운스 딜레이 (ms)
