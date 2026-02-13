@@ -108,26 +108,46 @@ const UIManager = {
     },
 
     renderTargetCard(sectionId) {
+        // App.state에서 해당 섹션의 보상휴가 설정 상태 가져오기
+        const rewardState = (window.App && window.App.state.rewardClaims[sectionId]) || { checked: false, hours: '' };
+        const isChecked = rewardState.checked ? 'checked' : '';
+        const isDisabled = rewardState.checked ? '' : 'disabled';
+        const hoursVal = rewardState.hours;
+
         return `
-            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div class="flex justify-between items-end mb-2">
-                    <p class="text-sm font-bold text-slate-700">⏳ 목표 달성 현황 (<span id="target-disp-${sectionId}">${CONFIG.DEFAULT_TARGET}</span>h)</p>
-                    <p id="rem-hours-text-${sectionId}" class="text-xs font-bold text-indigo-600">-</p>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-3 overflow-hidden">
-                    <div id="progress-${sectionId}" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <div class="flex justify-between items-center text-xs text-slate-600">
-                    <div class="flex items-center gap-1">
-                        <span>남은 평일 <b id="rem-days-${sectionId}">0</b>일</span>
-                        <div class="flex gap-0.5 ml-1">
-                            <button onclick="App.adjustDays('${sectionId}', -1)" class="w-4 h-4 bg-white border rounded hover:bg-slate-100 leading-none">-</button>
-                            <button onclick="App.adjustDays('${sectionId}', 1)" class="w-4 h-4 bg-white border rounded hover:bg-slate-100 leading-none">+</button>
+            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <p class="text-sm font-bold text-slate-700">⏳ 목표 달성 현황 (<span id="target-disp-${sectionId}">${CONFIG.DEFAULT_TARGET}</span>h)</p>
+                        <p id="rem-hours-text-${sectionId}" class="text-xs font-bold text-indigo-600">-</p>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-3 overflow-hidden">
+                        <div id="progress-${sectionId}" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-600">
+                        <div class="flex items-center gap-1">
+                            <span>남은 평일 <b id="rem-days-${sectionId}">0</b>일</span>
+                            <div class="flex gap-0.5 ml-1">
+                                <button onclick="App.adjustDays('${sectionId}', -1)" class="w-4 h-4 bg-white border rounded hover:bg-slate-100 leading-none">-</button>
+                                <button onclick="App.adjustDays('${sectionId}', 1)" class="w-4 h-4 bg-white border rounded hover:bg-slate-100 leading-none">+</button>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            하루 <span id="daily-target-${sectionId}" class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">0h</span> 권장
+                            <div id="exit-estimate-${sectionId}" class="text-[10px] text-slate-400 mt-0.5"></div>
                         </div>
                     </div>
-                    <div class="text-right">
-                        하루 <span id="daily-target-${sectionId}" class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">0h</span> 권장
-                        <div id="exit-estimate-${sectionId}" class="text-[10px] text-slate-400 mt-0.5"></div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between bg-indigo-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" class="reward-check w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" data-section="${sectionId}" ${isChecked}>
+                        <span class="text-xs font-bold text-indigo-800">보상휴가 사용</span>
+                    </label>
+                    <div class="flex items-center gap-1">
+                        <input type="number" class="reward-input w-12 text-center text-xs border border-indigo-200 rounded py-1 px-1 focus:outline-none focus:border-indigo-500 font-bold text-indigo-700 bg-white disabled:bg-slate-100 disabled:text-slate-400" 
+                            placeholder="0" value="${hoursVal}" ${isDisabled} data-section="${sectionId}" min="0" step="0.5">
+                        <span class="text-[10px] text-indigo-600 font-medium">시간 (×${CONFIG.REWARD_MULTIPLIER})</span>
                     </div>
                 </div>
             </div>
@@ -203,6 +223,9 @@ const UIManager = {
         const inTime = TimeUtils.cleanTimeStr(row.출근시간);
         const outTime = TimeUtils.cleanTimeStr(row.퇴근시간);
         const leaveTime = TimeUtils.cleanTimeStr(row.외출시간);
+        
+        // 기존 드롭다운 로직으로 복원
+        const leaveType = row.휴가유형 || 'normal';
 
         // 행 클래스 결정
         let rowClasses = "hover:bg-slate-50 transition-colors data-row";
@@ -224,10 +247,10 @@ const UIManager = {
                 <td class="p-3 text-center"><input type="text" class="leave-hours-input leave-hours" value="${leaveTime}" placeholder="-"></td>
                 <td class="p-3">
                     <select class="leave-selector w-full border-slate-200 rounded text-xs py-1.5">
-                        <option value="normal">정상</option>
-                        <option value="annual">연차(8h)</option>
-                        <option value="half">반차(4h)</option>
-                        <option value="quarter">반반차(2h)</option>
+                        <option value="normal" ${leaveType === 'normal' ? 'selected' : ''}>정상</option>
+                        <option value="annual" ${leaveType === 'annual' ? 'selected' : ''}>연차(8h)</option>
+                        <option value="half" ${leaveType === 'half' ? 'selected' : ''}>반차(4h)</option>
+                        <option value="quarter" ${leaveType === 'quarter' ? 'selected' : ''}>반반차(2h)</option>
                     </select>
                 </td>
                 <td class="p-3 align-middle">
