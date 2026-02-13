@@ -108,8 +108,11 @@ const UIManager = {
     },
 
     renderTargetCard(sectionId) {
-        // App.state에서 해당 섹션의 보상휴가 설정 상태 가져오기
-        const rewardState = (window.App && window.App.state.rewardClaims[sectionId]) || { checked: false, hours: '' };
+        // [수정됨] App.state나 rewardClaims가 아직 초기화되지 않았을 경우를 대비한 안전장치 추가
+        const appState = window.App && window.App.state;
+        const claims = (appState && appState.rewardClaims) || {};
+        const rewardState = claims[sectionId] || { checked: false, hours: '' };
+        
         const isChecked = rewardState.checked ? 'checked' : '';
         const isDisabled = rewardState.checked ? '' : 'disabled';
         const hoursVal = rewardState.hours;
@@ -223,8 +226,6 @@ const UIManager = {
         const inTime = TimeUtils.cleanTimeStr(row.출근시간);
         const outTime = TimeUtils.cleanTimeStr(row.퇴근시간);
         const leaveTime = TimeUtils.cleanTimeStr(row.외출시간);
-        
-        // 기존 드롭다운 로직으로 복원
         const leaveType = row.휴가유형 || 'normal';
 
         // 행 클래스 결정
